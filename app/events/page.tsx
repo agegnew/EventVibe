@@ -13,6 +13,7 @@ import { motion } from "framer-motion"
 import { useState } from "react"
 import { Event, getAllEvents } from "@/lib/data-service"
 import { useRouter, useSearchParams } from "next/navigation"
+import { useRealtimeSync, isRealtimeSyncSupported } from "@/lib/realtime-sync"
 
 // Categories for filter
 const categories = [
@@ -43,7 +44,7 @@ const statusOptions = [
   { value: "upcoming", label: "Upcoming" },
 ]
 
-export default function EventsPage() {
+function EventsContent() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [events, setEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
@@ -55,6 +56,7 @@ export default function EventsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const searchParams = useSearchParams();
   const router = useRouter();
+  const [isSyncEnabled, setIsSyncEnabled] = useState(false);
 
   const ITEMS_PER_PAGE = 9;
 
@@ -66,6 +68,67 @@ export default function EventsPage() {
     const [min, max] = range.split("-").map(Number);
     return { min, max };
   };
+
+  // Real-time sync handlers
+  const handleEventCreated = useCallback((data: Event | { isBulkImport: boolean, events: Event[] }) => {
+    console.log('[EventsPage] Received event-created', data);
+    // Check if this is a bulk import
+    if (data && 'isBulkImport' in data && data.isBulkImport && Array.isArray(data.events)) {
+      // Handle bulk import
+      setEvents(prevEvents => {
+        // Create a map of existing event IDs for quick lookup
+        const existingEventIds = new Set(prevEvents.map(event => event.id));
+        
+        // Filter out events that already exist
+        const newEvents = data.events.filter(event => !existingEventIds.has(event.id));
+        
+        // If no new events, return unchanged
+        if (newEvents.length === 0) return prevEvents;
+        
+        // Add all new events
+        return [...prevEvents, ...newEvents];
+      });
+    } else {
+      // Handle single event creation
+      const newEvent = data as Event;
+      setEvents(prevEvents => {
+        // Check if the event already exists (avoid duplicates)
+        const exists = prevEvents.some(event => event.id === newEvent.id);
+        if (exists) return prevEvents;
+        
+        // Add the new event
+        return [...prevEvents, newEvent];
+      });
+    }
+  }, []);
+
+  const handleEventUpdated = useCallback((updatedEvent: Event) => {
+    console.log('[EventsPage] Received event-updated', updatedEvent);
+    setEvents(prevEvents => {
+      return prevEvents.map(event => 
+        event.id === updatedEvent.id ? updatedEvent : event
+      );
+    });
+  }, []);
+
+  const handleEventDeleted = useCallback((data: { id: string }) => {
+    console.log('[EventsPage] Received event-deleted', data);
+    setEvents(prevEvents => {
+      return prevEvents.filter(event => event.id !== data.id);
+    });
+  }, []);
+
+  // Check if real-time sync is supported
+  useEffect(() => {
+    const syncSupported = isRealtimeSyncSupported();
+    console.log('[EventsPage] Real-time sync supported:', syncSupported);
+    setIsSyncEnabled(syncSupported);
+  }, []);
+
+  // Subscribe to real-time events
+  useRealtimeSync('event-created', handleEventCreated);
+  useRealtimeSync('event-updated', handleEventUpdated);
+  useRealtimeSync('event-deleted', handleEventDeleted);
 
   // Filter events based on current filter criteria
   const filterEvents = useCallback(() => {
@@ -272,6 +335,11 @@ export default function EventsPage() {
             transition={{ duration: 0.8, delay: 0.2 }}
           >
             Discover Events
+            {isSyncEnabled && (
+              <span className="text-xs ml-2 align-top bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                Live
+              </span>
+            )}
           </motion.h1>
           <motion.p 
             className="text-base sm:text-lg md:text-xl text-gray-700 dark:text-gray-300 max-w-2xl mx-auto"
@@ -439,4 +507,13 @@ export default function EventsPage() {
       </div>
     </main>
   )
+}
+
+// Wrap the page component in a Suspense boundary
+export default function EventsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <EventsContent />
+    </Suspense>
+  );
 }

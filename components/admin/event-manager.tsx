@@ -1,13 +1,14 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { motion } from "framer-motion"
-import { Search, Filter, Edit, Trash2, Plus, Calendar, X, Upload, Check } from "lucide-react"
+import { Search, Filter, Edit, Trash2, Plus, Calendar, X, Upload, Check, FileUp, Download, AlertCircle, AlertTriangle } from "lucide-react"
 import { GlassmorphicCard } from "@/components/ui-elements/glassmorphic-card"
 import { NeumorphicButton } from "@/components/ui-elements/neumorphic-button"
 import { NeumorphicInput } from "@/components/ui-elements/neumorphic-input"
 import Image from "next/image"
-import { Event, createEvent, updateEvent, deleteEvent, getAllEvents } from "@/lib/data-service"
+import { Event, createEvent, updateEvent, deleteEvent, getAllEvents, importEventsFromCsv } from "@/lib/data-service"
+import { useRealtimeSync, isRealtimeSyncSupported } from "@/lib/realtime-sync"
 
 export function EventManager() {
   const [events, setEvents] = useState<Event[]>([])
@@ -19,10 +20,26 @@ export function EventManager() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // CSV Import state
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+  const [csvFile, setCsvFile] = useState<File | null>(null)
+  const [importLoading, setImportLoading] = useState(false)
+  const [importResult, setImportResult] = useState<{
+    success?: boolean;
+    message?: string;
+    error?: string;
+    events?: Event[];
+    invalidRows?: any[];
+  } | null>(null)
+  const csvInputRef = useRef<HTMLInputElement>(null)
 
   // Load events on component mount
   useEffect(() => {
     fetchEvents()
+    
+    // Check if real-time sync is supported
+    console.log('[EventManager] Real-time sync supported:', isRealtimeSyncSupported());
   }, [])
 
   const fetchEvents = async () => {
@@ -36,6 +53,61 @@ export function EventManager() {
       setLoading(false)
     }
   }
+
+  // Real-time sync handlers
+  const handleEventCreated = useCallback((data: Event | { isBulkImport: boolean, events: Event[] }) => {
+    // Check if this is a bulk import
+    if (data && 'isBulkImport' in data && data.isBulkImport && Array.isArray(data.events)) {
+      // Handle bulk import
+      setEvents(prevEvents => {
+        // Create a map of existing event IDs for quick lookup
+        const existingEventIds = new Set(prevEvents.map(event => event.id))
+        
+        // Filter out events that already exist
+        const newEvents = data.events.filter(event => !existingEventIds.has(event.id))
+        
+        // If no new events, return unchanged
+        if (newEvents.length === 0) return prevEvents
+        
+        // Add all new events and sort
+        return [...prevEvents, ...newEvents].sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
+      })
+    } else {
+      // Handle single event creation
+      const newEvent = data as Event
+      setEvents(prevEvents => {
+        // Check if the event already exists (avoid duplicates)
+        const exists = prevEvents.some(event => event.id === newEvent.id)
+        if (exists) return prevEvents
+        
+        // Add the new event and sort by date (newest first)
+        return [...prevEvents, newEvent].sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
+      })
+    }
+  }, [])
+
+  const handleEventUpdated = useCallback((updatedEvent: Event) => {
+    setEvents(prevEvents => {
+      return prevEvents.map(event => 
+        event.id === updatedEvent.id ? updatedEvent : event
+      )
+    })
+  }, [])
+
+  const handleEventDeleted = useCallback((data: { id: string }) => {
+    setEvents(prevEvents => {
+      return prevEvents.filter(event => event.id !== data.id)
+    })
+  }, [])
+
+  // Subscribe to real-time events
+  useRealtimeSync('event-created', handleEventCreated)
+  useRealtimeSync('event-updated', handleEventUpdated)
+  useRealtimeSync('event-deleted', handleEventDeleted)
 
   // Filter events based on search term
   const filteredEvents = events.filter(event => 
@@ -155,14 +227,158 @@ export function EventManager() {
     }
   }
 
+  // Open the import modal
+  const openImportModal = () => {
+    setIsImportModalOpen(true)
+    setImportResult(null)
+    setCsvFile(null)
+    if (csvInputRef.current) {
+      csvInputRef.current.value = ""
+    }
+  }
+
+  // Close the import modal
+  const closeImportModal = () => {
+    setIsImportModalOpen(false)
+    setImportResult(null)
+    setCsvFile(null)
+  }
+
+  // Handle CSV file selection
+  const handleCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files && e.target.files[0]
+    
+    if (file) {
+      if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
+        alert('Please select a valid CSV file')
+        setCsvFile(null)
+        if (csvInputRef.current) {
+          csvInputRef.current.value = ""
+        }
+        return
+      }
+      
+      setCsvFile(file)
+      setImportResult(null)
+    }
+  }
+
+  // Handle CSV import submission
+  const importCsv = async () => {
+    if (!csvFile) return
+    
+    setImportLoading(true)
+    setImportResult(null)
+    
+    try {
+      // Use the data service function
+      const result = await importEventsFromCsv(csvFile)
+      
+      setImportResult({
+        success: true,
+        message: result.message,
+        events: result.events
+      })
+      
+      // Refresh events list
+      await fetchEvents()
+    } catch (error) {
+      console.error('Error importing CSV:', error)
+      setImportResult({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      })
+    } finally {
+      setImportLoading(false)
+    }
+  }
+
+  // Generate a CSV template for download
+  const downloadCsvTemplate = () => {
+    const headers = [
+      'title',
+      'description',
+      'date',
+      'endDate',
+      'location',
+      'category',
+      'price',
+      'seats',
+      'status',
+      'featured',
+      'image'
+    ]
+    
+    const sampleData = [
+      {
+        title: 'Tech Conference 2026',
+        description: 'A conference about the latest technology trends',
+        date: '2026-05-15',
+        endDate: '2026-05-17',
+        location: 'San Francisco, CA',
+        category: 'Technology',
+        price: 299.99,
+        seats: 500,
+        status: 'Upcoming',
+        featured: 'true',
+        image: '/placeholder.jpg'
+      },
+      {
+        title: 'Marketing Workshop',
+        description: 'Learn the latest marketing strategies',
+        date: '2026-06-10',
+        endDate: '2026-06-10',
+        location: 'New York, NY',
+        category: 'Marketing',
+        price: 149.99,
+        seats: 100,
+        status: 'Draft',
+        featured: 'false',
+        image: ''
+      }
+    ]
+    
+    // Create CSV content
+    const headerRow = headers.join(',')
+    const dataRows = sampleData.map(item => 
+      headers.map(header => {
+        const value = item[header as keyof typeof item]
+        // Escape commas and quotes in string values
+        if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+          return `"${value.replace(/"/g, '""')}"`
+        }
+        return value
+      }).join(',')
+    )
+    
+    const csvContent = [headerRow, ...dataRows].join('\n')
+    
+    // Create a blob and download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.setAttribute('href', url)
+    link.setAttribute('download', 'event_import_template.csv')
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   return (
     <div className="w-full">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8">
         <h1 className="text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-500 title-3d">Manage Events</h1>
-        <NeumorphicButton className="w-full sm:w-auto" onClick={() => openEventModal()}>
-          <Plus className="w-4 h-4 mr-2" />
-          <span>Create Event</span>
-        </NeumorphicButton>
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <NeumorphicButton className="w-full sm:w-auto" onClick={openImportModal}>
+            <FileUp className="w-4 h-4 mr-2" />
+            <span>Import CSV</span>
+          </NeumorphicButton>
+          <NeumorphicButton className="w-full sm:w-auto" onClick={() => openEventModal()}>
+            <Plus className="w-4 h-4 mr-2" />
+            <span>Create Event</span>
+          </NeumorphicButton>
+        </div>
       </div>
 
       <GlassmorphicCard className="p-4 md:p-6 border border-blue-100/50 dark:border-blue-800/30" borderGlow={true}>
@@ -511,6 +727,151 @@ export function EventManager() {
                   Delete
                 </NeumorphicButton>
               </div>
+            </GlassmorphicCard>
+          </motion.div>
+        </div>
+      )}
+
+      {/* CSV Import Modal */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto styled-scrollbar"
+          >
+            <GlassmorphicCard className="p-6 border border-blue-100/50 dark:border-blue-800/30" borderGlow={true}>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-500">
+                  Import Events from CSV
+                </h2>
+                <button onClick={closeImportModal} className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {!importResult?.success && (
+                <>
+                  <p className="mb-4 text-gray-600 dark:text-gray-400">
+                    Upload a CSV file containing event data. Your CSV should have the following headers:
+                  </p>
+                  
+                  <div className="mb-4 p-3 bg-gray-50/80 dark:bg-gray-800/30 rounded-md overflow-x-auto">
+                    <code className="text-xs">
+                      title, description, date, endDate, location, category, price, seats, status, featured, image
+                    </code>
+                  </div>
+                  
+                  <div className="mb-6">
+                    <NeumorphicButton 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={downloadCsvTemplate}
+                      className="text-sm"
+                    >
+                      <Download className="w-3 h-3 mr-1" />
+                      Download Template
+                    </NeumorphicButton>
+                  </div>
+                  
+                  <div 
+                    className="h-32 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center relative bg-gray-50/50 dark:bg-gray-800/30 mb-4"
+                  >
+                    {csvFile ? (
+                      <div className="text-center p-4">
+                        <Check className="w-10 h-10 mx-auto text-green-500" />
+                        <p className="mt-2 text-sm">{csvFile.name}</p>
+                        <p className="text-xs text-gray-500">{(csvFile.size / 1024).toFixed(2)} KB</p>
+                      </div>
+                    ) : (
+                      <div className="text-center p-4">
+                        <Upload className="w-10 h-10 mx-auto text-gray-400" />
+                        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Click to upload CSV file</p>
+                        <p className="text-xs text-gray-400">CSV files only</p>
+                      </div>
+                    )}
+                    <input
+                      ref={csvInputRef}
+                      type="file"
+                      accept=".csv,text/csv"
+                      onChange={handleCsvFileChange}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                  </div>
+                  
+                  {importResult?.error && (
+                    <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-md">
+                      <div className="flex items-start">
+                        <AlertCircle className="w-5 h-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium text-red-800 dark:text-red-300">{importResult.error}</p>
+                          
+                          {importResult.invalidRows && importResult.invalidRows.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-sm text-red-700 dark:text-red-400">Issues found in the following rows:</p>
+                              <ul className="mt-1 text-xs text-red-600 dark:text-red-400 list-disc pl-5 space-y-1">
+                                {importResult.invalidRows.slice(0, 5).map((row, index) => (
+                                  <li key={index}>
+                                    Row {row.rowIndex + 2}: {row.errors.join(', ')}
+                                  </li>
+                                ))}
+                                {importResult.invalidRows.length > 5 && (
+                                  <li>...and {importResult.invalidRows.length - 5} more errors</li>
+                                )}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-end mt-4 space-x-3">
+                    <NeumorphicButton variant="outline" onClick={closeImportModal}>Cancel</NeumorphicButton>
+                    <NeumorphicButton 
+                      onClick={importCsv} 
+                      disabled={!csvFile || importLoading}
+                      className={importLoading ? "opacity-70 cursor-not-allowed" : ""}
+                    >
+                      {importLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <FileUp className="w-4 h-4 mr-2" />
+                          Import Events
+                        </>
+                      )}
+                    </NeumorphicButton>
+                  </div>
+                </>
+              )}
+              
+              {importResult?.success && (
+                <div className="text-center py-6">
+                  <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-4">
+                    <Check className="w-8 h-8 text-green-500" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">Import Successful!</h3>
+                  <p className="mb-6 text-gray-600 dark:text-gray-400">{importResult.message}</p>
+                  
+                  {importResult.events && importResult.events.length > 0 && (
+                    <div className="mb-6 p-4 bg-white/50 dark:bg-gray-800/30 rounded-md max-h-40 overflow-auto styled-scrollbar text-left">
+                      <p className="font-semibold mb-2 text-sm">Imported Events:</p>
+                      <ul className="text-sm space-y-1">
+                        {importResult.events.map(event => (
+                          <li key={event.id} className="truncate">{event.title}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  <NeumorphicButton onClick={closeImportModal}>Close</NeumorphicButton>
+                </div>
+              )}
             </GlassmorphicCard>
           </motion.div>
         </div>

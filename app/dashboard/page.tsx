@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion } from "framer-motion"
@@ -16,7 +16,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { getAllEvents, getEventById, getUserById, Event } from "@/lib/data-service"
 import { useSearchParams } from "next/navigation"
 
-export default function DashboardPage() {
+function DashboardContent() {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("upcoming")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
@@ -603,4 +603,13 @@ export default function DashboardPage() {
       </div>
     </main>
   )
+}
+
+// Wrap the page component in a Suspense boundary
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <DashboardContent />
+    </Suspense>
+  );
 }

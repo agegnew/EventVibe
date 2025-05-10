@@ -158,6 +158,43 @@ export const serverDeleteEvent = async (id: string): Promise<boolean> => {
   return true;
 };
 
+// Bulk import multiple events at once
+export const serverImportEvents = async (
+  eventDataArray: Array<Omit<Event, 'id' | 'createdAt' | 'updatedAt' | 'registrations' | 'revenue'>>
+): Promise<Event[]> => {
+  const events = await serverGetAllEvents();
+  const now = new Date().toISOString();
+  
+  const newEvents: Event[] = [];
+  
+  for (const eventData of eventDataArray) {
+    const newEventId = uuidv4();
+    
+    // Handle image path
+    let imagePath = eventData.image || '/placeholder.jpg';
+    
+    const newEvent: Event = {
+      ...eventData,
+      id: newEventId,
+      image: imagePath,
+      registrations: 0,
+      revenue: 0,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    newEvents.push(newEvent);
+  }
+  
+  // Add all new events to the existing events array
+  events.push(...newEvents);
+  
+  // Save the updated events array to the file
+  await writeJSONFile(EVENTS_FILE_PATH, events);
+  
+  return newEvents;
+};
+
 // Users API server-side functions
 export const serverGetAllUsers = async (): Promise<User[]> => {
   return readJSONFile<User[]>(USERS_FILE_PATH, []);

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
@@ -11,7 +11,7 @@ import { NeumorphicInput } from "@/components/ui-elements/neumorphic-input"
 import { OrganicShape } from "@/components/ui-elements/organic-shape"
 import { useAuth } from "@/hooks/use-auth"
 
-export default function LoginPage() {
+function LoginContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
   const [email, setEmail] = useState("")
@@ -272,4 +272,13 @@ export default function LoginPage() {
       </motion.div>
     </main>
   )
+}
+
+// Wrap the page component in a Suspense boundary
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginContent />
+    </Suspense>
+  );
 }

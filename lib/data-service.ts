@@ -242,3 +242,42 @@ export const registerForEvent = async (userId: string, eventId: string): Promise
     message: data.message || 'Successfully registered for event'
   };
 };
+
+// Bulk import events from CSV
+export const importEventsFromCsv = async (csvFile: File): Promise<{ events: Event[]; message: string }> => {
+  const formData = new FormData();
+  formData.append('file', csvFile);
+  
+  const response = await fetch('/api/events/import', {
+    method: 'POST',
+    body: formData,
+    credentials: 'include'
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to import events');
+  }
+  
+  const result = await response.json();
+  
+  // Broadcast each imported event to other tabs
+  if (result.events && result.events.length > 0) {
+    // For large imports, batch the events to avoid overwhelming the BroadcastChannel
+    // Send a combined event with all events
+    realtimeSync.broadcast('event-created', {
+      isBulkImport: true,
+      events: result.events
+    });
+    
+    // Small delay to prevent race conditions
+    setTimeout(() => {
+      // Also broadcast individual events for backward compatibility
+      result.events.forEach((event: Event) => {
+        realtimeSync.broadcast('event-created', event);
+      });
+    }, 100);
+  }
+  
+  return result;
+};

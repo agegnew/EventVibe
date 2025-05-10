@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { motion } from "framer-motion"
@@ -29,7 +29,7 @@ const eventData = {
   category: "Technology",
 }
 
-export default function RegisterPage() {
+function RegisterContent() {
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoaded, setIsLoaded] = useState(false)
   const [eventId, setEventId] = useState<string | null>(null)
@@ -398,4 +398,13 @@ export default function RegisterPage() {
       </div>
     </main>
   )
+}
+
+// Wrap the page component in a Suspense boundary
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <RegisterContent />
+    </Suspense>
+  );
 }

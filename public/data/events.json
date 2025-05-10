@@ -70,5 +70,41 @@
     "revenue": 0,
     "createdAt": "2025-05-10T18:11:03.973Z",
     "updatedAt": "2025-05-10T18:11:03.973Z"
+  },
+  {
+    "title": "Marketing Workshop",
+    "description": "Learn the latest marketing strategies\nand more",
+    "date": "2026-06-10",
+    "endDate": "2026-06-10",
+    "location": "New York, NY",
+    "category": "Marketing",
+    "price": 330,
+    "seats": 100,
+    "status": "Upcoming",
+    "featured": false,
+    "image": "/data/images/events/d572d89b-2c26-412b-af9b-01727827d6aa.png",
+    "id": "d572d89b-2c26-412b-af9b-01727827d6aa",
+    "registrations": 0,
+    "revenue": 0,
+    "createdAt": "2025-05-10T18:49:53.476Z",
+    "updatedAt": "2025-05-10T19:37:22.365Z"
+  },
+  {
+    "title": "In to the Jungle",
+    "description": "Discover a trip in to the jungle",
+    "date": "2025-05-10",
+    "endDate": "2025-05-10",
+    "location": "Ethiopia",
+    "category": "Entertainment",
+    "price": 1000,
+    "seats": 20,
+    "status": "Upcoming",
+    "featured": true,
+    "id": "612945bc-6529-4ce6-be0d-7c8f170154e1",
+    "image": "/data/images/events/612945bc-6529-4ce6-be0d-7c8f170154e1.png",
+    "registrations": 0,
+    "revenue": 0,
+    "createdAt": "2025-05-10T19:38:51.341Z",
+    "updatedAt": "2025-05-10T19:38:51.341Z"
   }
 ]

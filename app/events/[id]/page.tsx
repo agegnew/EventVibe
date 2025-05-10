@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -14,6 +14,7 @@ import { EventMap } from "@/components/event-map"
 import { motion } from "framer-motion"
 import { Event, getEventById, registerForEvent } from "@/lib/data-service"
 import { useAuth } from "@/hooks/use-auth"
+import { useRealtimeSync, isRealtimeSyncSupported } from "@/lib/realtime-sync"
 
 export default function EventDetailPage({ params }: { params: { id: string } }) {
   const { user } = useAuth();
@@ -25,12 +26,44 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
   const [isRegistering, setIsRegistering] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [registrationError, setRegistrationError] = useState<string | null>(null);
+  const [isSyncEnabled, setIsSyncEnabled] = useState(false);
   
   // Check if user is already registered
   const isUserRegistered = user && event && user.events && user.events.includes(event.id);
   
   // Check if event is full
   const isEventFull = event && event.registrations >= event.seats;
+
+  // Check if real-time sync is supported
+  useEffect(() => {
+    const syncSupported = isRealtimeSyncSupported();
+    console.log('[EventDetailPage] Real-time sync supported:', syncSupported);
+    setIsSyncEnabled(syncSupported);
+  }, []);
+
+  // Real-time sync handlers
+  const handleEventUpdated = useCallback((updatedEvent: Event) => {
+    console.log('[EventDetailPage] Received event-updated', updatedEvent);
+    // Check if this is our event being updated
+    if (updatedEvent.id === params.id) {
+      console.log('[EventDetailPage] Updating displayed event');
+      setEvent(updatedEvent);
+    }
+  }, [params.id]);
+
+  const handleEventDeleted = useCallback((data: { id: string }) => {
+    console.log('[EventDetailPage] Received event-deleted', data);
+    // If our event was deleted, show error
+    if (data.id === params.id) {
+      console.log('[EventDetailPage] Event was deleted');
+      setError("This event has been deleted");
+      setEvent(null);
+    }
+  }, [params.id]);
+
+  // Subscribe to real-time events
+  useRealtimeSync('event-updated', handleEventUpdated);
+  useRealtimeSync('event-deleted', handleEventDeleted);
 
   // Fetch event data
   useEffect(() => {
@@ -169,8 +202,15 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
             <Image src={event.image || "/placeholder.svg"} alt={event.title} fill className="object-cover" priority />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end">
               <div className="p-4 sm:p-6 md:p-8 w-full">
-                <div className="inline-block px-3 py-1 bg-blue-600 text-white text-sm rounded-full mb-2 sm:mb-4">
-                  {event.category}
+                <div className="flex items-center gap-2">
+                  <div className="inline-block px-3 py-1 bg-blue-600 text-white text-sm rounded-full mb-2 sm:mb-4">
+                    {event.category}
+                  </div>
+                  {isSyncEnabled && (
+                    <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full mb-2 sm:mb-4">
+                      Live Updates
+                    </span>
+                  )}
                 </div>
                 <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-2">{event.title}</h1>
                 <div className="flex flex-wrap gap-3 sm:gap-4 text-white text-sm sm:text-base">

@@ -1,0 +1,6 @@
+title,description,date,endDate,location,category,price,seats,status,featured,image
+Tech Conference 2026,A conference about the latest technology trends,2026-05-15,2026-05-17,San Francisco CA,Technology,299.99,500,Upcoming,true,/placeholder.jpg
+Marketing Workshop,Learn the latest marketing strategies,2026-06-10,2026-06-10,New York NY,Marketing,149.99,100,Draft,false,
+Design Summit,"UI/UX design principles, trends, and workshops",2026-07-22,2026-07-24,Austin TX,Design,199.99,250,Draft,true,
+AI Symposium,Exploring the future of artificial intelligence,2026-08-30,2026-09-01,Seattle WA,Technology,349.99,300,Upcoming,true,
+Business Leadership Conference,Strategies for effective business leadership,2026-09-15,2026-09-17,Chicago IL,Business,249.99,400,Upcoming,false, 
