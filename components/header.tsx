@@ -4,16 +4,18 @@ import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { Menu, X, Sun, Moon, Calendar } from "lucide-react"
+import { Menu, X, Sun, Moon, Calendar, User, LogOut } from "lucide-react"
 import { useTheme } from "next-themes"
 import { NeumorphicButton } from "@/components/ui-elements/neumorphic-button"
 import { GlassmorphicCard } from "@/components/ui-elements/glassmorphic-card"
+import { useAuth } from "@/hooks/use-auth"
 
 export function Header() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const { theme, setTheme } = useTheme()
   const pathname = usePathname()
+  const { isLoggedIn, isAdmin, user, logout } = useAuth()
 
   // Check if the current path is admin
   const isAdminPage = pathname.startsWith("/admin")
@@ -39,10 +41,15 @@ export function Header() {
   const navItems = [
     { name: "Home", href: "/" },
     { name: "Events", href: "/events" },
-    { name: "Dashboard", href: "/dashboard" },
+    ...(isLoggedIn ? [{ name: "Dashboard", href: "/dashboard" }] : []),
     { name: "About", href: "#" },
     { name: "Contact", href: "#" },
   ]
+
+  const handleLogout = () => {
+    logout();
+    setIsMobileMenuOpen(false);
+  };
 
   const headerVariants = {
     scrolled: {
@@ -120,12 +127,34 @@ export function Header() {
               </motion.button>
 
               <div className="hidden md:flex items-center gap-2">
-                <NeumorphicButton asChild variant="outline" className="hover-float">
-                  <Link href="/login">Sign In</Link>
-                </NeumorphicButton>
-                <NeumorphicButton asChild className="hover-float">
-                  <Link href="/signup">Sign Up</Link>
-                </NeumorphicButton>
+                {isLoggedIn ? (
+                  <>
+                    {isAdmin && (
+                      <NeumorphicButton asChild variant="outline" className="hover-float">
+                        <Link href="/admin">Admin</Link>
+                      </NeumorphicButton>
+                    )}
+                    <NeumorphicButton asChild variant="outline" className="hover-float">
+                      <Link href="/dashboard">
+                        <User className="h-4 w-4 mr-1" />
+                        {user?.name}
+                      </Link>
+                    </NeumorphicButton>
+                    <NeumorphicButton onClick={handleLogout} className="hover-float">
+                      <LogOut className="h-4 w-4 mr-1" />
+                      Logout
+                    </NeumorphicButton>
+                  </>
+                ) : (
+                  <>
+                    <NeumorphicButton asChild variant="outline" className="hover-float">
+                      <Link href="/login">Sign In</Link>
+                    </NeumorphicButton>
+                    <NeumorphicButton asChild className="hover-float">
+                      <Link href="/signup">Sign Up</Link>
+                    </NeumorphicButton>
+                  </>
+                )}
               </div>
 
               <motion.button
@@ -170,12 +199,34 @@ export function Header() {
                     </Link>
                   ))}
                   <div className="flex flex-col space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                    <NeumorphicButton asChild variant="outline">
-                      <Link href="/login">Sign In</Link>
-                    </NeumorphicButton>
-                    <NeumorphicButton asChild>
-                      <Link href="/signup">Sign Up</Link>
-                    </NeumorphicButton>
+                    {isLoggedIn ? (
+                      <>
+                        {isAdmin && (
+                          <NeumorphicButton asChild variant="outline">
+                            <Link href="/admin" onClick={() => setIsMobileMenuOpen(false)}>Admin</Link>
+                          </NeumorphicButton>
+                        )}
+                        <NeumorphicButton asChild variant="outline">
+                          <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
+                            <User className="h-4 w-4 mr-1" />
+                            {user?.name}
+                          </Link>
+                        </NeumorphicButton>
+                        <NeumorphicButton onClick={handleLogout}>
+                          <LogOut className="h-4 w-4 mr-1" />
+                          Logout
+                        </NeumorphicButton>
+                      </>
+                    ) : (
+                      <>
+                        <NeumorphicButton asChild variant="outline">
+                          <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>Sign In</Link>
+                        </NeumorphicButton>
+                        <NeumorphicButton asChild>
+                          <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)}>Sign Up</Link>
+                        </NeumorphicButton>
+                      </>
+                    )}
                   </div>
                 </nav>
               </GlassmorphicCard>

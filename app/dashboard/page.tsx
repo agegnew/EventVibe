@@ -1,23 +1,18 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion } from "framer-motion"
-import { Calendar, Clock, MapPin, Ticket, Settings, Bell, LogOut, User, Grid, List } from "lucide-react"
+import { Calendar, Clock, MapPin, Ticket, Settings, Bell, LogOut, User, Grid, List, Upload } from "lucide-react"
 import { GlassmorphicCard } from "@/components/ui-elements/glassmorphic-card"
 import { NeumorphicButton } from "@/components/ui-elements/neumorphic-button"
 import { NeumorphicTabs, NeumorphicTabsContent } from "@/components/ui-elements/neumorphic-tabs"
 import { OrganicShape } from "@/components/ui-elements/organic-shape"
 import { Calendar3D } from "@/components/calendar-3d"
 import { SimpleCalendar } from "@/components/simple-calendar"
-
-// Sample user data
-const user = {
-  name: "Alex Johnson",
-  email: "alex@example.com",
-  avatar: "/placeholder.svg?height=200&width=200",
-}
+import { UserAvatar } from "@/components/user-avatar"
+import { useAuth } from "@/hooks/use-auth"
 
 // Sample upcoming events
 const upcomingEvents = [
@@ -92,10 +87,16 @@ const recommendedEvents = [
 ]
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("upcoming")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [isLoaded, setIsLoaded] = useState(false);
   const [shouldUseSimpleCalendar, setShouldUseSimpleCalendar] = useState(true);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Defer non-critical animations until after page load
   useEffect(() => {
@@ -131,6 +132,51 @@ export default function DashboardPage() {
     }
   }, []);
 
+  // Handle image selection
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file || !user) return;
+    
+    try {
+      setIsUploading(true);
+      setUploadError(null);
+      setImageFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      
+      // Upload the image
+      const formData = new FormData();
+      formData.append('avatar', file);
+      formData.append('userId', user.id);
+      
+      const response = await fetch('/api/users/avatar', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to update avatar');
+      }
+      
+      // Update was successful, could refresh user data here if needed
+      
+    } catch (error: any) {
+      console.error('Error updating avatar:', error);
+      setUploadError(error.message || 'Failed to update avatar');
+      // Revert preview
+      setImagePreview(null);
+    } finally {
+      setIsUploading(false);
+      setImageFile(null);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-mesh-gradient dark:from-gray-900 dark:to-gray-800 pt-28 sm:pt-32 md:pt-36 pb-20 relative overflow-hidden animated-bg">
       {/* Floating orbs for background effect */}
@@ -162,17 +208,35 @@ export default function DashboardPage() {
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }}>
               <GlassmorphicCard className="p-4 sm:p-6 sticky top-24" borderGlow={true}>
                 <div className="flex flex-col items-center mb-4 sm:mb-6 pb-4 sm:pb-6 border-b border-gray-200 dark:border-gray-700">
-                  <div className="w-16 sm:w-20 h-16 sm:h-20 rounded-full overflow-hidden mb-3 sm:mb-4 bg-purple-100 dark:bg-purple-900/30">
-                    <Image
-                      src={user.avatar || "/placeholder.svg"}
-                      alt={user.name}
-                      width={80}
-                      height={80}
-                      className="object-cover"
+                  <div className="mb-3 sm:mb-4 relative group">
+                    <div className="relative">
+                      <UserAvatar 
+                        src={imagePreview || user?.avatar || "/default.png"} 
+                        alt={user?.name || "User"} 
+                        size={80}
+                        className="bg-purple-100 dark:bg-purple-900/30"
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center cursor-pointer"
+                        onClick={() => fileInputRef.current?.click()}>
+                        <Upload className="h-8 w-8 text-white" />
+                      </div>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
                     />
+                    {isUploading && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-25 rounded-full">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                      </div>
+                    )}
                   </div>
-                  <h2 className="text-lg sm:text-xl font-bold">{user.name}</h2>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{user.email}</p>
+                  {uploadError && <p className="text-xs text-red-500 mb-2">{uploadError}</p>}
+                  <h2 className="text-lg sm:text-xl font-bold">{user?.name || "User"}</h2>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{user?.email || "user@example.com"}</p>
                 </div>
 
                 <nav className="space-y-2">

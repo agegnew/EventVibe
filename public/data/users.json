@@ -1,0 +1,35 @@
+[
+  {
+    "id": "1",
+    "name": "Admin User",
+    "email": "admin@event.ae",
+    "password": "123",
+    "role": "admin",
+    "avatar": "/data/images/users/default.png",
+    "events": [],
+    "createdAt": "2025-01-01T00:00:00Z",
+    "updatedAt": "2025-01-01T00:00:00Z"
+  },
+  {
+    "name": "add",
+    "email": "agegnew@gmail.com",
+    "password": "pass123",
+    "role": "user",
+    "avatar": "/data/images/users/default.png",
+    "events": [],
+    "id": "d4d68a83-1023-410d-a826-8ea006182c13",
+    "createdAt": "2025-05-10T16:36:58.795Z",
+    "updatedAt": "2025-05-10T16:36:58.795Z"
+  },
+  {
+    "name": "ashly",
+    "email": "ashly@gmail.com",
+    "password": "qqq111",
+    "role": "user",
+    "avatar": "/data/images/users/d90d527a-4aec-4a6d-a035-0a8eb85e0bc8.jpg",
+    "events": [],
+    "id": "90d40bf1-a610-4cf4-bebf-7b1558c3faae",
+    "createdAt": "2025-05-10T16:47:15.690Z",
+    "updatedAt": "2025-05-10T16:47:15.690Z"
+  }
+]

@@ -1,7 +1,7 @@
 "use client"
 
-import { Suspense } from "react"
-import { Filter } from "lucide-react"
+import { Suspense, useCallback, useEffect } from "react"
+import { Filter, Search } from "lucide-react"
 import { GlassmorphicCard } from "@/components/ui-elements/glassmorphic-card"
 import { NeumorphicButton } from "@/components/ui-elements/neumorphic-button"
 import { NeumorphicInput } from "@/components/ui-elements/neumorphic-input"
@@ -10,110 +10,229 @@ import { OrganicShape } from "@/components/ui-elements/organic-shape"
 import { EventCard } from "@/components/event-card"
 import { EventsLoading } from "@/components/events-loading"
 import { motion } from "framer-motion"
-import { useEffect, useState } from "react"
-
-// Sample events data
-const events = [
-  {
-    id: "1",
-    title: "Tech Conference 2025",
-    date: "May 15-17, 2025",
-    location: "San Francisco, CA",
-    image: "/placeholder.svg?height=400&width=600",
-    description:
-      "Join the biggest tech conference of the year featuring keynotes from industry leaders and hands-on workshops.",
-    price: 299,
-    category: "Technology",
-    attendees: 1200,
-  },
-  {
-    id: "2",
-    title: "Design Summit",
-    date: "June 10-12, 2025",
-    location: "New York, NY",
-    image: "/placeholder.svg?height=400&width=600",
-    description:
-      "A three-day summit for designers to share ideas, learn new skills, and network with industry professionals.",
-    price: 249,
-    category: "Design",
-    attendees: 800,
-  },
-  {
-    id: "3",
-    title: "Marketing Expo",
-    date: "July 5-7, 2025",
-    location: "Chicago, IL",
-    image: "/placeholder.svg?height=400&width=600",
-    description: "Discover the latest marketing trends and strategies from top marketing experts.",
-    price: 199,
-    category: "Marketing",
-    attendees: 950,
-  },
-  {
-    id: "4",
-    title: "Music Festival",
-    date: "August 20-22, 2025",
-    location: "Austin, TX",
-    image: "/placeholder.svg?height=400&width=600",
-    description: "Three days of live music performances from top artists across multiple genres.",
-    price: 349,
-    category: "Music",
-    attendees: 5000,
-  },
-  {
-    id: "5",
-    title: "Food & Wine Expo",
-    date: "September 8-10, 2025",
-    location: "Portland, OR",
-    image: "/placeholder.svg?height=400&width=600",
-    description: "Sample delicious food and wine from top chefs and wineries from around the world.",
-    price: 179,
-    category: "Food",
-    attendees: 1500,
-  },
-  {
-    id: "6",
-    title: "Sports Convention",
-    date: "October 15-17, 2025",
-    location: "Miami, FL",
-    image: "/placeholder.svg?height=400&width=600",
-    description: "Meet your favorite athletes and discover the latest sports equipment and technology.",
-    price: 149,
-    category: "Sports",
-    attendees: 2200,
-  },
-]
+import { useState } from "react"
+import { Event, getAllEvents } from "@/lib/data-service"
+import { useRouter, useSearchParams } from "next/navigation"
 
 // Categories for filter
 const categories = [
   { value: "all", label: "All Categories" },
   { value: "technology", label: "Technology" },
+  { value: "business", label: "Business" },
   { value: "design", label: "Design" },
   { value: "marketing", label: "Marketing" },
   { value: "music", label: "Music" },
   { value: "food", label: "Food" },
   { value: "sports", label: "Sports" },
+  { value: "arts", label: "Arts" },
 ]
 
 // Price ranges for filter
 const priceRanges = [
   { value: "all", label: "All Prices" },
   { value: "0-100", label: "Under $100" },
-  { value: "100-200", label: "100-$200" },
-  { value: "200-300", label: "200-$300" },
+  { value: "100-200", label: "$100-$200" },
+  { value: "200-300", label: "$200-$300" },
   { value: "300+", label: "Over $300" },
+]
+
+// Status filter options
+const statusOptions = [
+  { value: "all", label: "All Status" },
+  { value: "active", label: "Active" },
+  { value: "upcoming", label: "Upcoming" },
 ]
 
 export default function EventsPage() {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedPrice, setSelectedPrice] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
-  // Defer non-critical animations until after page load
+  const ITEMS_PER_PAGE = 9;
+
+  // Parse price range string into min and max values
+  const parsePriceRange = (range: string) => {
+    if (range === "all") return { min: 0, max: Infinity };
+    if (range === "300+") return { min: 300, max: Infinity };
+
+    const [min, max] = range.split("-").map(Number);
+    return { min, max };
+  };
+
+  // Filter events based on current filter criteria
+  const filterEvents = useCallback(() => {
+    if (!events.length) return [];
+
+    let filtered = [...events];
+
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        event => 
+          event.title.toLowerCase().includes(query) || 
+          event.description.toLowerCase().includes(query) ||
+          event.location.toLowerCase().includes(query)
+      );
+    }
+
+    // Category filter
+    if (selectedCategory !== "all") {
+      filtered = filtered.filter(
+        event => event.category.toLowerCase() === selectedCategory
+      );
+    }
+
+    // Price filter
+    if (selectedPrice !== "all") {
+      const { min, max } = parsePriceRange(selectedPrice);
+      filtered = filtered.filter(
+        event => event.price >= min && event.price <= max
+      );
+    }
+
+    // Status filter
+    if (selectedStatus !== "all") {
+      filtered = filtered.filter(
+        event => event.status.toLowerCase() === selectedStatus
+      );
+    }
+
+    return filtered;
+  }, [events, searchQuery, selectedCategory, selectedPrice, selectedStatus]);
+
+  // Update URL with current filters for shareable links
+  const updateUrlParams = useCallback(() => {
+    const params = new URLSearchParams();
+    
+    if (searchQuery) params.set('search', searchQuery);
+    if (selectedCategory !== 'all') params.set('category', selectedCategory);
+    if (selectedPrice !== 'all') params.set('price', selectedPrice);
+    if (selectedStatus !== 'all') params.set('status', selectedStatus);
+    if (currentPage > 1) params.set('page', currentPage.toString());
+    
+    const newUrl = params.toString() 
+      ? `${window.location.pathname}?${params.toString()}`
+      : window.location.pathname;
+    
+    router.push(newUrl, { scroll: false });
+  }, [searchQuery, selectedCategory, selectedPrice, selectedStatus, currentPage, router]);
+
+  // Apply filters
+  const applyFilters = () => {
+    setFilteredEvents(filterEvents());
+    setCurrentPage(1);
+    updateUrlParams();
+  };
+
+  // Fetch events and apply initial filters from URL
   useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const allEvents = await getAllEvents();
+        setEvents(allEvents);
+        
+        // Get initial filter values from URL
+        const initialSearchQuery = searchParams.get('search') || '';
+        const initialCategory = searchParams.get('category') || 'all';
+        const initialPrice = searchParams.get('price') || 'all';
+        const initialStatus = searchParams.get('status') || 'all';
+        const initialPage = parseInt(searchParams.get('page') || '1');
+        
+        // Set filter states from URL params
+        setSearchQuery(initialSearchQuery);
+        setSelectedCategory(initialCategory);
+        setSelectedPrice(initialPrice);
+        setSelectedStatus(initialStatus);
+        setCurrentPage(initialPage);
+        
+        // Apply initial filters
+        setFilteredEvents(allEvents);
+      } catch (error) {
+        console.error("Error fetching events:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchEvents();
+    
+    // Defer non-critical animations until after page load
     const timer = setTimeout(() => {
       setIsLoaded(true);
     }, 100);
     return () => clearTimeout(timer);
-  }, []);
+  }, [searchParams]);
+
+  // Apply filters when events change or filters update
+  useEffect(() => {
+    if (!isLoading) {
+      const filtered = filterEvents();
+      setFilteredEvents(filtered);
+    }
+  }, [events, filterEvents, isLoading]);
+
+  // Paginate events
+  const paginatedEvents = filteredEvents.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Calculate total pages
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredEvents.length / ITEMS_PER_PAGE)
+  );
+
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    let pages = [];
+    const maxPagesToShow = 5;
+    
+    if (totalPages <= maxPagesToShow) {
+      // Show all pages if there are 5 or fewer
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first and last page
+      pages.push(1);
+      
+      // Determine middle pages to show
+      let middleStart = Math.max(2, currentPage - 1);
+      let middleEnd = Math.min(totalPages - 1, currentPage + 1);
+      
+      // Add ellipsis if needed before middle pages
+      if (middleStart > 2) {
+        pages.push('...');
+      }
+      
+      // Add middle pages
+      for (let i = middleStart; i <= middleEnd; i++) {
+        pages.push(i);
+      }
+      
+      // Add ellipsis if needed after middle pages
+      if (middleEnd < totalPages - 1) {
+        pages.push('...');
+      }
+      
+      // Add last page if not already included
+      if (middleEnd < totalPages) {
+        pages.push(totalPages);
+      }
+    }
+    
+    return pages;
+  };
 
   return (
     <main className="min-h-screen bg-mesh-gradient dark:from-gray-900 dark:to-gray-800 pt-28 sm:pt-32 md:pt-36 pb-20 relative overflow-hidden animated-bg">
@@ -174,18 +293,39 @@ export default function EventsPage() {
             <div className="flex flex-col md:flex-row gap-4 items-end">
               <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Search Events</label>
-                <NeumorphicInput placeholder="Search by event name or location" icon={<Filter className="h-4 w-4" />} />
+                <NeumorphicInput 
+                  placeholder="Search by event name, description or location" 
+                  icon={<Search className="h-4 w-4" />} 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
               <div className="w-full md:w-48">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category</label>
-                <NeumorphicSelect options={categories} />
+                <NeumorphicSelect 
+                  options={categories} 
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                />
               </div>
               <div className="w-full md:w-48">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Price Range</label>
-                <NeumorphicSelect options={priceRanges} />
+                <NeumorphicSelect 
+                  options={priceRanges} 
+                  value={selectedPrice}
+                  onChange={(e) => setSelectedPrice(e.target.value)}
+                />
+              </div>
+              <div className="w-full md:w-40">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
+                <NeumorphicSelect 
+                  options={statusOptions} 
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                />
               </div>
               <div className="w-full md:w-auto">
-                <NeumorphicButton>Apply Filters</NeumorphicButton>
+                <NeumorphicButton onClick={applyFilters}>Apply Filters</NeumorphicButton>
               </div>
             </div>
           </GlassmorphicCard>
@@ -193,43 +333,109 @@ export default function EventsPage() {
 
         {/* Events Grid */}
         <Suspense fallback={<EventsLoading />}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {events.map((event, index) => (
-              <motion.div
-                key={event.id}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: 0.1 * index }}
-              >
-                <EventCard event={event} />
-              </motion.div>
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[...Array(6)].map((_, i) => (
+                <div 
+                  key={i} 
+                  className="h-96 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse"
+                />
+              ))}
+            </div>
+          ) : paginatedEvents.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {paginatedEvents.map((event, index) => (
+                <motion.div
+                  key={event.id}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: 0.1 * index }}
+                >
+                  <EventCard event={{
+                    id: event.id,
+                    title: event.title,
+                    date: new Date(event.date).toLocaleDateString('en-US', { 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric'
+                    }),
+                    location: event.location,
+                    image: event.image,
+                    description: event.description,
+                    price: event.price,
+                    category: event.category
+                  }} />
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-20">
+              <h3 className="text-xl font-semibold mb-2">No events found</h3>
+              <p className="text-gray-600 dark:text-gray-400">Try adjusting your search filters</p>
+            </div>
+          )}
         </Suspense>
 
         {/* Pagination */}
-        <motion.div 
-          className="mt-12 flex justify-center"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-        >
-          <nav className="flex items-center gap-2">
-            <NeumorphicButton variant="outline" size="sm">
-              Previous
-            </NeumorphicButton>
-            {[1, 2, 3, 4, 5].map((page) => (
-              <NeumorphicButton key={page} variant={page === 1 ? "default" : "outline"} size="sm" className="w-10 h-10">
-                {page}
+        {!isLoading && filteredEvents.length > 0 && (
+          <motion.div 
+            className="mt-12 flex justify-center"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <nav className="flex items-center gap-2">
+              <NeumorphicButton 
+                variant="outline" 
+                size="sm" 
+                onClick={() => {
+                  if (currentPage > 1) {
+                    const newPage = currentPage - 1;
+                    setCurrentPage(newPage);
+                    setTimeout(() => updateUrlParams(), 0);
+                  }
+                }}
+                disabled={currentPage === 1}
+              >
+                Previous
               </NeumorphicButton>
-            ))}
-            <NeumorphicButton variant="outline" size="sm">
-              Next
-            </NeumorphicButton>
-          </nav>
-        </motion.div>
+              {getPageNumbers().map((page, index) => (
+                typeof page === 'number' ? (
+                  <NeumorphicButton 
+                    key={index} 
+                    variant={page === currentPage ? "default" : "outline"} 
+                    size="sm" 
+                    className="w-10 h-10"
+                    onClick={() => {
+                      setCurrentPage(page);
+                      setTimeout(() => updateUrlParams(), 0);
+                    }}
+                  >
+                    {page}
+                  </NeumorphicButton>
+                ) : (
+                  <span key={index} className="px-1">...</span>
+                )
+              ))}
+              <NeumorphicButton 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  if (currentPage < totalPages) {
+                    const newPage = currentPage + 1;
+                    setCurrentPage(newPage);
+                    setTimeout(() => updateUrlParams(), 0);
+                  }
+                }}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </NeumorphicButton>
+            </nav>
+          </motion.div>
+        )}
       </div>
     </main>
   )

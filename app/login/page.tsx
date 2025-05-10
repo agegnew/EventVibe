@@ -2,16 +2,26 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
-import { Mail, Lock, Eye, EyeOff } from "lucide-react"
+import { Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react"
 import { GlassmorphicCard } from "@/components/ui-elements/glassmorphic-card"
 import { NeumorphicButton } from "@/components/ui-elements/neumorphic-button"
 import { NeumorphicInput } from "@/components/ui-elements/neumorphic-input"
 import { OrganicShape } from "@/components/ui-elements/organic-shape"
+import { useAuth } from "@/hooks/use-auth"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
+  const [isLoggingIn, setIsLoggingIn] = useState(false)
+  const router = useRouter()
+  const { login, isLoggedIn } = useAuth()
+  const searchParams = useSearchParams()
 
   // Defer non-critical animations until after page load
   useEffect(() => {
@@ -20,6 +30,47 @@ export default function LoginPage() {
     }, 100);
     return () => clearTimeout(timer);
   }, []);
+
+  // Check for signup success parameter
+  useEffect(() => {
+    if (searchParams.get('signup') === 'success') {
+      setSuccess('Account created successfully! Please log in with your credentials.');
+    }
+  }, [searchParams]);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isLoggedIn) {
+      router.push('/dashboard');
+    }
+  }, [isLoggedIn, router]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    
+    if (!email || !password) {
+      setError("Please enter both email and password");
+      return;
+    }
+    
+    try {
+      setIsLoggingIn(true);
+      const user = await login(email, password);
+      
+      if (!user) {
+        setError("Invalid email or password");
+      } else {
+        // Redirect handled by the useEffect
+      }
+    } catch (err) {
+      setError("An error occurred during login");
+      console.error(err);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-mesh-gradient dark:from-gray-900 dark:to-gray-800 flex items-center justify-center pt-28 sm:pt-32 md:pt-20 pb-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden animated-bg">
@@ -71,15 +122,44 @@ export default function LoginPage() {
             </motion.p>
           </div>
 
+          {error && (
+            <motion.div
+              className="mb-6 p-3 bg-red-100 border border-red-300 text-red-700 rounded flex items-center gap-2"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <AlertCircle className="h-5 w-5" />
+              <span>{error}</span>
+            </motion.div>
+          )}
+
+          {success && (
+            <motion.div
+              className="mb-6 p-3 bg-green-100 border border-green-300 text-green-700 rounded flex items-center gap-2"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <CheckCircle className="h-5 w-5" />
+              <span>{success}</span>
+            </motion.div>
+          )}
+
           <motion.form 
             className="space-y-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
+            onSubmit={handleSubmit}
           >
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
-              <NeumorphicInput type="email" placeholder="Enter your email" icon={<Mail className="h-4 w-4" />} />
+              <NeumorphicInput 
+                type="email" 
+                placeholder="Enter your email" 
+                icon={<Mail className="h-4 w-4" />} 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
 
             <div>
@@ -88,6 +168,8 @@ export default function LoginPage() {
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter your password"
                 icon={<Lock className="h-4 w-4" />}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 rightIcon={
                   <button
                     type="button"
@@ -112,20 +194,24 @@ export default function LoginPage() {
                   Remember me
                 </label>
               </div>
-
               <div className="text-sm">
                 <Link
                   href="#"
-                  className="text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+                  className="text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
                 >
-                  Forgot your password?
+                  Forgot password?
                 </Link>
               </div>
             </div>
 
             <div>
-              <NeumorphicButton className="w-full" size="lg">
-                Sign In
+              <NeumorphicButton 
+                className="w-full" 
+                size="lg" 
+                type="submit"
+                disabled={isLoggingIn}
+              >
+                {isLoggingIn ? 'Signing in...' : 'Sign in'}
               </NeumorphicButton>
             </div>
           </motion.form>
@@ -141,20 +227,18 @@ export default function LoginPage() {
                 <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                  Or continue with
-                </span>
+                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">Or continue with</span>
               </div>
             </div>
 
             <div className="mt-6 grid grid-cols-3 gap-3">
-              <NeumorphicButton variant="outline" className="w-full">
+              <NeumorphicButton variant="outline" className="w-full" type="button">
                 Google
               </NeumorphicButton>
-              <NeumorphicButton variant="outline" className="w-full">
+              <NeumorphicButton variant="outline" className="w-full" type="button">
                 Apple
               </NeumorphicButton>
-              <NeumorphicButton variant="outline" className="w-full">
+              <NeumorphicButton variant="outline" className="w-full" type="button">
                 GitHub
               </NeumorphicButton>
             </div>

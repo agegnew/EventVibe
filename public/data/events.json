@@ -1,0 +1,20 @@
+[
+  {
+    "title": "the new events",
+    "description": "this is a test event",
+    "date": "2025-05-10",
+    "endDate": "2025-05-10",
+    "location": "Dubai, UAE",
+    "category": "Technology",
+    "price": 100,
+    "seats": 20,
+    "status": "Upcoming",
+    "featured": true,
+    "id": "9a405280-c5dd-441f-bceb-5e9f372d53fa",
+    "image": "/data/images/events/9a405280-c5dd-441f-bceb-5e9f372d53fa.png",
+    "registrations": 0,
+    "revenue": 0,
+    "createdAt": "2025-05-10T15:17:59.852Z",
+    "updatedAt": "2025-05-10T15:17:59.852Z"
+  }
+]

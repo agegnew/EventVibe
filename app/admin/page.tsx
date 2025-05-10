@@ -11,6 +11,9 @@ import { NeumorphicTabsContent } from "@/components/ui-elements/neumorphic-tabs"
 import { OrganicShape } from "@/components/ui-elements/organic-shape"
 import { AdminSidebar } from "@/components/admin-sidebar"
 import { AdminChart } from "@/components/admin-chart"
+import { EventManager } from "@/components/admin/event-manager"
+import { UserManager } from "@/components/admin/user-manager"
+import { getAllEvents, getAllUsers } from "@/lib/data-service"
 
 // Sample events data
 const events = [
@@ -61,46 +64,41 @@ const events = [
   },
 ]
 
-// Sample users data
-const users = [
-  {
-    id: "1",
-    name: "Alex Johnson",
-    email: "alex@example.com",
-    events: 3,
-    joined: "Jan 15, 2025",
-    avatar: "/placeholder.svg?height=200&width=200",
-  },
-  {
-    id: "2",
-    name: "Sarah Williams",
-    email: "sarah@example.com",
-    events: 5,
-    joined: "Feb 3, 2025",
-    avatar: "/placeholder.svg?height=200&width=200",
-  },
-  {
-    id: "3",
-    name: "Michael Brown",
-    email: "michael@example.com",
-    events: 2,
-    joined: "Mar 10, 2025",
-    avatar: "/placeholder.svg?height=200&width=200",
-  },
-  {
-    id: "4",
-    name: "Emily Davis",
-    email: "emily@example.com",
-    events: 4,
-    joined: "Jan 22, 2025",
-    avatar: "/placeholder.svg?height=200&width=200",
-  },
-]
+// Removed hardcoded sample users data as we're loading real users from data-service
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("dashboard")
   const [isLoaded, setIsLoaded] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
+  
+  // Dashboard stats state
+  const [eventCount, setEventCount] = useState(0)
+  const [userCount, setUserCount] = useState(0)
+  const [totalRevenue, setTotalRevenue] = useState(0)
+  const [activeEventCount, setActiveEventCount] = useState(0)
+
+  // Load dashboard data
+  useEffect(() => {
+    async function loadDashboardData() {
+      try {
+        const events = await getAllEvents()
+        const users = await getAllUsers()
+        
+        setEventCount(events.length)
+        setUserCount(users.length)
+        
+        const revenue = events.reduce((sum, event) => sum + event.revenue, 0)
+        setTotalRevenue(revenue)
+        
+        const activeEvents = events.filter(event => event.status === "Active")
+        setActiveEventCount(activeEvents.length)
+      } catch (error) {
+        console.error("Error loading dashboard data:", error)
+      }
+    }
+    
+    loadDashboardData()
+  }, [])
 
   // Defer animations until after page load
   useEffect(() => {
@@ -152,6 +150,7 @@ export default function AdminPage() {
           >
             <Menu className="h-6 w-6" />
           </button>
+          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-500 title-3d">EventVibe Admin</h1>
         </div>
         
         <NeumorphicTabsContent id="dashboard" activeTab={activeTab}>
@@ -167,7 +166,7 @@ export default function AdminPage() {
               {[
                 {
                   title: "Total Events",
-                  value: "24",
+                  value: eventCount.toString(),
                   change: "+12%",
                   trend: "up",
                   icon: Calendar,
@@ -177,7 +176,7 @@ export default function AdminPage() {
                 },
                 {
                   title: "Total Users",
-                  value: "1,245",
+                  value: userCount.toString(),
                   change: "+28%",
                   trend: "up",
                   icon: Users,
@@ -187,7 +186,7 @@ export default function AdminPage() {
                 },
                 {
                   title: "Total Revenue",
-                  value: "$548,290",
+                  value: `$${totalRevenue.toLocaleString()}`,
                   change: "+18%",
                   trend: "up",
                   icon: DollarSign,
@@ -197,7 +196,7 @@ export default function AdminPage() {
                 },
                 {
                   title: "Active Events",
-                  value: "12",
+                  value: activeEventCount.toString(),
                   change: "+5%",
                   trend: "up",
                   icon: Calendar,
@@ -278,258 +277,15 @@ export default function AdminPage() {
                 </GlassmorphicCard>
               </motion.div>
             </div>
-
-            {/* Recent Events */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.5 }}
-              className="mb-6 md:mb-8"
-            >
-              <GlassmorphicCard className="p-4 md:p-6 border border-blue-100/50 dark:border-blue-800/30" borderGlow={true}>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-4">
-                  <h2 className="text-lg md:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-500">Recent Events</h2>
-                  <div className="flex gap-2 w-full sm:w-auto">
-                    <NeumorphicInput placeholder="Search events..." className="w-full sm:w-48 hidden md:flex" icon={<Search className="h-4 w-4" />} />
-                    <NeumorphicButton className="w-full sm:w-auto">
-                      <Plus className="w-4 h-4 mr-2" />
-                      <span>New Event</span>
-                    </NeumorphicButton>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto styled-scrollbar">
-                  <table className="w-full min-w-[600px]">
-                    <thead>
-                      <tr className="border-b border-gray-200 dark:border-gray-700">
-                        <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400 rounded-tl-lg bg-gray-50/50 dark:bg-gray-800/30">Event</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-800/30">Date</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-800/30 hidden md:table-cell">Location</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-800/30 hidden md:table-cell">
-                          Registrations
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-800/30">Revenue</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-800/30">Status</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400 rounded-tr-lg bg-gray-50/50 dark:bg-gray-800/30">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {events.map((event, idx) => (
-                        <tr 
-                          key={event.id} 
-                          className={`border-b border-gray-200 dark:border-gray-700/50 hover:bg-white/40 dark:hover:bg-gray-800/20 transition-colors ${idx === events.length - 1 ? 'border-b-0' : ''}`}
-                        >
-                          <td className="py-3 px-4 font-medium">{event.title}</td>
-                          <td className="py-3 px-4 text-gray-600 dark:text-gray-400">{event.date}</td>
-                          <td className="py-3 px-4 text-gray-600 dark:text-gray-400 hidden md:table-cell">{event.location}</td>
-                          <td className="py-3 px-4 hidden md:table-cell">
-                            <div className="flex items-center">
-                              {event.registrations.toLocaleString()}
-                              {event.registrations > 400 && (
-                                <span className="ml-2 text-green-500 flex items-center text-xs">
-                                  <TrendingUp className="w-3 h-3 mr-1" /> 12%
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 font-medium">${event.revenue.toLocaleString()}</td>
-                          <td className="py-3 px-4">
-                            <span
-                              className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                                event.status === "Active"
-                                  ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800/50"
-                                  : event.status === "Draft"
-                                    ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800/50"
-                                    : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50"
-                              }`}
-                            >
-                              {event.status}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex gap-2">
-                              <button className="text-gray-600 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 bg-gray-100/50 dark:bg-gray-800/30 hover:bg-blue-50 dark:hover:bg-blue-900/20 p-1 rounded-md transition-colors">
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button className="text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 bg-gray-100/50 dark:bg-gray-800/30 hover:bg-red-50 dark:hover:bg-red-900/20 p-1 rounded-md transition-colors">
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </GlassmorphicCard>
-            </motion.div>
           </motion.div>
         </NeumorphicTabsContent>
 
         <NeumorphicTabsContent id="events" activeTab={activeTab}>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8">
-              <h1 className="text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-500 title-3d">Manage Events</h1>
-              <NeumorphicButton className="w-full sm:w-auto">
-                <Plus className="w-4 h-4 mr-2" />
-                <span>Create Event</span>
-              </NeumorphicButton>
-            </div>
-
-            <GlassmorphicCard className="p-4 md:p-6 border border-blue-100/50 dark:border-blue-800/30" borderGlow={true}>
-              <div className="flex flex-col md:flex-row gap-4 mb-6">
-                <div className="flex-1">
-                  <NeumorphicInput placeholder="Search events..." icon={<Search className="h-4 w-4" />} />
-                </div>
-                <div className="w-full md:w-48">
-                  <NeumorphicButton variant="outline" className="w-full justify-between">
-                    <span>Filter</span>
-                    <Filter className="w-4 h-4" />
-                  </NeumorphicButton>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto styled-scrollbar">
-                <table className="w-full min-w-[700px]">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-gray-700">
-                      <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400 rounded-tl-lg bg-gray-50/50 dark:bg-gray-800/30">Event</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-800/30">Date</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-800/30 hidden md:table-cell">Location</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-800/30 hidden lg:table-cell">
-                        Registrations
-                      </th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-800/30 hidden md:table-cell">Revenue</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-800/30">Status</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400 rounded-tr-lg bg-gray-50/50 dark:bg-gray-800/30">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {events.map((event, idx) => (
-                      <tr 
-                        key={event.id} 
-                        className={`border-b border-gray-200 dark:border-gray-700/50 hover:bg-white/40 dark:hover:bg-gray-800/20 transition-colors ${idx === events.length - 1 ? 'border-b-0' : ''}`}
-                      >
-                        <td className="py-3 px-4 font-medium">{event.title}</td>
-                        <td className="py-3 px-4 text-gray-600 dark:text-gray-400">{event.date}</td>
-                        <td className="py-3 px-4 text-gray-600 dark:text-gray-400 hidden md:table-cell">{event.location}</td>
-                        <td className="py-3 px-4 hidden lg:table-cell">{event.registrations.toLocaleString()}</td>
-                        <td className="py-3 px-4 hidden md:table-cell">${event.revenue.toLocaleString()}</td>
-                        <td className="py-3 px-4">
-                          <span
-                            className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                              event.status === "Active"
-                                ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800/50"
-                                : event.status === "Draft"
-                                  ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800/50"
-                                  : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50"
-                            }`}
-                          >
-                            {event.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex gap-2">
-                            <button className="text-gray-600 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 bg-gray-100/50 dark:bg-gray-800/30 hover:bg-blue-50 dark:hover:bg-blue-900/20 p-1 rounded-md transition-colors">
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button className="text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 bg-gray-100/50 dark:bg-gray-800/30 hover:bg-red-50 dark:hover:bg-red-900/20 p-1 rounded-md transition-colors">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                            <button className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 bg-gray-100/50 dark:bg-gray-800/30 hover:bg-gray-200/50 dark:hover:bg-gray-700/30 p-1 rounded-md transition-colors">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </GlassmorphicCard>
-          </motion.div>
+          <EventManager />
         </NeumorphicTabsContent>
 
         <NeumorphicTabsContent id="users" activeTab={activeTab}>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8">
-              <h1 className="text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-500 title-3d">Manage Users</h1>
-              <NeumorphicButton className="w-full sm:w-auto">
-                <Plus className="w-4 h-4 mr-2" />
-                <span>Add User</span>
-              </NeumorphicButton>
-            </div>
-
-            <GlassmorphicCard className="p-4 md:p-6 border border-blue-100/50 dark:border-blue-800/30" borderGlow={true}>
-              <div className="flex flex-col md:flex-row gap-4 mb-6">
-                <div className="flex-1">
-                  <NeumorphicInput placeholder="Search users..." icon={<Search className="h-4 w-4" />} />
-                </div>
-                <div className="w-full md:w-48">
-                  <NeumorphicButton variant="outline" className="w-full justify-between">
-                    <span>Filter</span>
-                    <Filter className="w-4 h-4" />
-                  </NeumorphicButton>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-                {users.map((user, index) => (
-                  <motion.div
-                    key={user.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: index * 0.1 }}
-                  >
-                    <GlassmorphicCard 
-                      key={user.id} 
-                      className="p-6 border border-blue-100/50 dark:border-blue-800/30 transition-all hover:shadow-lg"
-                      borderGlow={true}
-                      animateHover={true}
-                    >
-                      <div className="flex items-center mb-4">
-                        <div className="w-12 h-12 rounded-full overflow-hidden mr-4 bg-gradient-to-r from-blue-400 to-indigo-500 p-0.5">
-                          <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-gray-800">
-                            <Image
-                              src={user.avatar || "/placeholder.svg"}
-                              alt={user.name}
-                              width={48}
-                              height={48}
-                              className="object-cover"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <h3 className="font-bold">{user.name}</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{user.email}</p>
-                        </div>
-                      </div>
-                      <div className="space-y-2 text-sm mb-4">
-                        <div className="flex justify-between p-2 rounded-lg bg-gray-50/70 dark:bg-gray-800/30">
-                          <span className="text-gray-600 dark:text-gray-400">Joined</span>
-                          <span>{user.joined}</span>
-                        </div>
-                        <div className="flex justify-between p-2 rounded-lg bg-blue-50/70 dark:bg-blue-900/10">
-                          <span className="text-gray-600 dark:text-gray-400">Events</span>
-                          <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-xs font-medium">
-                            {user.events}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="mt-3 flex gap-2">
-                        <NeumorphicButton size="sm" variant="outline" className="flex-1">
-                          <Edit className="w-4 h-4 mr-1" /> Edit
-                        </NeumorphicButton>
-                        <NeumorphicButton size="sm" variant="outline" className="flex-1">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </NeumorphicButton>
-                      </div>
-                    </GlassmorphicCard>
-                  </motion.div>
-                ))}
-              </div>
-            </GlassmorphicCard>
-          </motion.div>
+          <UserManager />
         </NeumorphicTabsContent>
 
         <NeumorphicTabsContent id="analytics" activeTab={activeTab}>

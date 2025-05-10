@@ -18,70 +18,151 @@ export default function Loading() {
         type="blob1"
       />
       <OrganicShape
-        className="absolute bottom-0 left-0 w-[350px] md:w-[500px] h-[350px] md:h-[500px] text-purple-200 dark:text-purple-900 opacity-30 -rotate-45"
+        className="absolute bottom-0 left-0 w-[300px] md:w-[500px] h-[300px] md:h-[500px] text-purple-200 dark:text-purple-900 opacity-30 -rotate-45"
         type="blob2"
       />
 
-      {/* Admin Sidebar - Hidden on mobile */}
-      <div className="hidden md:block w-64 bg-white/60 dark:bg-gray-800/40 backdrop-blur-md border-r border-blue-100/50 dark:border-blue-900/30"></div>
-
-      {/* Main Content Loading State */}
-      <div className="flex-1 p-6 md:p-8">
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="space-y-6 md:space-y-8"
-        >
-          {/* Mobile Header placeholder */}
-          <div className="flex items-center justify-between md:hidden mb-6">
-            <div className="w-10 h-10 rounded-md bg-gray-200/70 dark:bg-gray-700/40 animate-pulse"></div>
-            <div className="h-8 w-48 bg-gradient-to-r from-blue-200/70 to-blue-100/40 dark:from-blue-800/40 dark:to-blue-900/30 rounded-lg animate-pulse"></div>
-          </div>
-          
-          {/* Header placeholder */}
-          <div className="h-8 md:h-12 w-48 md:w-60 bg-gradient-to-r from-blue-200/70 to-blue-100/40 dark:from-blue-800/40 dark:to-blue-900/30 rounded-lg animate-pulse"></div>
-          
-          {/* Stats Cards placeholders */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-4 md:mb-8">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <GlassmorphicCard key={index} className="p-4 md:p-6 min-h-[100px] animate-pulse">
-                <div className="flex items-center">
-                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-blue-200/70 dark:bg-blue-800/40 mr-4"></div>
-                  <div className="space-y-2">
-                    <div className="h-3 md:h-4 w-16 md:w-20 bg-gray-200/70 dark:bg-gray-700/40 rounded"></div>
-                    <div className="h-5 md:h-6 w-14 md:w-16 bg-gray-300/70 dark:bg-gray-600/40 rounded"></div>
+      {/* Static Sidebar */}
+      <div className="hidden md:block md:w-64 lg:w-72 p-6 shrink-0 z-10">
+        <div className="h-full">
+          <GlassmorphicCard 
+            className="w-full h-full p-6 border border-blue-100/50 dark:border-blue-800/30"
+            borderGlow={true}
+          >
+            <div className="h-full flex flex-col">
+              <div className="flex items-center space-x-2 mb-6">
+                <div className="w-10 h-10 rounded-lg bg-blue-500 animate-pulse"></div>
+                <div className="h-7 w-24 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-md animate-pulse"></div>
+              </div>
+              
+              <div className="space-y-2 flex-1">
+                {[1, 2, 3, 4].map((item) => (
+                  <div key={item} className="flex items-center p-3 rounded-lg">
+                    <div className="w-5 h-5 rounded-md bg-gray-300 dark:bg-gray-700 mr-3 animate-pulse"></div>
+                    <div className="h-4 w-20 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
                   </div>
+                ))}
+              </div>
+              
+              <div className="pt-6 mt-auto">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-700 animate-pulse"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-16 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                    <div className="h-3 w-24 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </GlassmorphicCard>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 p-6 md:p-8 overflow-auto z-10 w-full">
+        {/* Mobile Header */}
+        <div className="flex items-center justify-between md:hidden mb-6">
+          <button className="p-2 rounded-md bg-white/30 dark:bg-gray-800/30 text-gray-700 dark:text-gray-300">
+            <Menu className="h-6 w-6" />
+          </button>
+          <div className="h-7 w-40 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-md animate-pulse"></div>
+        </div>
+
+        {/* Shimmer Content */}
+        <div className="mb-6 md:mb-8">
+          <div className="h-8 w-64 md:w-80 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-md animate-pulse mb-6 md:mb-8"></div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+            {[1, 2, 3, 4].map((item) => (
+              <GlassmorphicCard key={item} className="p-6 border border-blue-100/50 dark:border-blue-800/30" borderGlow={true}>
+                <div className="flex items-center mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mr-4">
+                    <div className="w-5 h-5 bg-blue-500 rounded animate-pulse"></div>
+                  </div>
+                  <div>
+                    <div className="h-3 w-20 bg-gray-300 dark:bg-gray-700 rounded animate-pulse mb-2"></div>
+                    <div className="h-5 w-16 bg-gray-400 dark:bg-gray-600 rounded animate-pulse"></div>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <div className="h-3 w-12 bg-green-300 dark:bg-green-700 rounded animate-pulse"></div>
                 </div>
               </GlassmorphicCard>
             ))}
           </div>
           
-          {/* Charts placeholders */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mb-6 md:mb-8">
-            {Array.from({ length: 2 }).map((_, index) => (
-              <GlassmorphicCard key={index} className="p-4 md:p-6">
-                <div className="h-5 md:h-6 w-32 md:w-40 bg-gray-200/70 dark:bg-gray-700/40 rounded mb-4"></div>
-                <div className="h-[200px] md:h-[300px] bg-gradient-to-br from-blue-100/30 to-purple-100/20 dark:from-blue-900/20 dark:to-purple-900/10 rounded-lg animate-pulse"></div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+            {[1, 2].map((item) => (
+              <GlassmorphicCard key={item} className="p-6 border border-blue-100/50 dark:border-blue-800/30 h-[350px]" borderGlow={true}>
+                <div className="flex justify-between items-center mb-4">
+                  <div className="h-6 w-40 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-md animate-pulse"></div>
+                  <div className="flex gap-2">
+                    <div className="h-8 w-20 bg-gray-300 dark:bg-gray-700 rounded-md animate-pulse"></div>
+                    <div className="h-8 w-20 bg-gray-300 dark:bg-gray-700 rounded-md animate-pulse"></div>
+                  </div>
+                </div>
+                <div className="h-[250px] bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse"></div>
               </GlassmorphicCard>
             ))}
           </div>
-          
-          {/* Table placeholder */}
-          <GlassmorphicCard className="p-4 md:p-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-4">
-              <div className="h-5 md:h-6 w-32 md:w-40 bg-gray-200/70 dark:bg-gray-700/40 rounded"></div>
-              <div className="h-8 md:h-10 w-full sm:w-24 bg-blue-200/70 dark:bg-blue-800/40 rounded-lg"></div>
-            </div>
-            <div className="space-y-4 overflow-x-auto">
-              <div className="h-10 w-full min-w-[600px] bg-gray-100/60 dark:bg-gray-800/30 rounded-lg"></div>
-              {Array.from({ length: 5 }).map((_, index) => (
-                <div key={index} className="h-12 md:h-16 w-full min-w-[600px] bg-white/40 dark:bg-gray-700/20 rounded-lg animate-pulse"></div>
-              ))}
-            </div>
-          </GlassmorphicCard>
-        </motion.div>
+        </div>
       </div>
+      
+      {/* Global styles for animations */}
+      <style jsx global>{`
+        @keyframes gradient {
+          0% { background-position: 0% 50% }
+          50% { background-position: 100% 50% }
+          100% { background-position: 0% 50% }
+        }
+        
+        .animated-bg {
+          background-size: 400% 400%;
+          animation: gradient 15s ease infinite;
+        }
+        
+        .floating-orbs {
+          position: absolute;
+          border-radius: 50%;
+          opacity: 0.2;
+          filter: blur(80px);
+          z-index: 0;
+        }
+        
+        .orb-1 {
+          width: 300px;
+          height: 300px;
+          top: -100px;
+          right: 5%;
+          background: radial-gradient(circle, rgba(59, 130, 246, 0.8) 0%, rgba(147, 51, 234, 0.5) 100%);
+          animation: float 20s infinite ease-in-out;
+        }
+        
+        .orb-2 {
+          width: 250px;
+          height: 250px;
+          bottom: 10%;
+          left: 5%;
+          background: radial-gradient(circle, rgba(79, 70, 229, 0.8) 0%, rgba(16, 185, 129, 0.5) 100%);
+          animation: float 15s infinite ease-in-out reverse;
+        }
+        
+        @keyframes float {
+          0% { transform: translate(0, 0) rotate(0deg); }
+          33% { transform: translate(2%, 3%) rotate(5deg); }
+          66% { transform: translate(-2%, -3%) rotate(-5deg); }
+          100% { transform: translate(0, 0) rotate(0deg); }
+        }
+        
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        
+        .animate-pulse {
+          animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+      `}</style>
     </div>
   )
 }

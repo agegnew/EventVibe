@@ -2,7 +2,7 @@ import type React from "react"
 import { cn } from "@/lib/utils"
 
 interface OrganicShapeProps extends React.SVGAttributes<SVGElement> {
-  type: "blob1" | "blob2" | "blob3"
+  type: "blob1" | "blob2" | "blob3" | "blob4"
   className?: string
 }
 
@@ -16,6 +16,9 @@ export function OrganicShape({ type, className, ...props }: OrganicShapeProps) {
     ),
     blob3: (
       <path d="M134.6,33.8c44.7,7.8,92.5,42.5,93.9,82.4c1.4,39.9-43.7,85-98.2,106.2c-54.5,21.2-118.4,18.6-151.6-15.3 C-54.5,171.2-57,106,5.2,61.5C67.4,17,89.9,26,134.6,33.8z" />
+    ),
+    blob4: (
+      <path d="M175.2,36.8c45.8,12.5,84.5,55.1,84.3,97.9c-0.2,42.8-39.3,85.8-90.2,96.3c-50.9,10.5-113.5-11.4-142.4-56.2 C-2,130,2.3,62.5,43.7,30.2C85.1-2.1,129.4,24.3,175.2,36.8z" />
     ),
   }
 
