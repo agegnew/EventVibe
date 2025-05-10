@@ -31,19 +31,27 @@ export default function LoginPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Check for signup success parameter
+  // Check for signup success parameter and redirect path
   useEffect(() => {
     if (searchParams.get('signup') === 'success') {
       setSuccess('Account created successfully! Please log in with your credentials.');
+    }
+    
+    // Check for error message from middleware redirects
+    const message = searchParams.get('message');
+    if (message) {
+      setError(message);
     }
   }, [searchParams]);
 
   // Redirect if already logged in
   useEffect(() => {
     if (isLoggedIn) {
-      router.push('/dashboard');
+      // Check if there's a redirect path
+      const redirect = searchParams.get('redirect') || '/dashboard';
+      router.push(redirect);
     }
-  }, [isLoggedIn, router]);
+  }, [isLoggedIn, router, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +70,9 @@ export default function LoginPage() {
       if (!user) {
         setError("Invalid email or password");
       } else {
-        // Redirect handled by the useEffect
+        // After successful login, get the redirect URL if it exists
+        const redirect = searchParams.get('redirect') || '/dashboard';
+        router.push(redirect);
       }
     } catch (err) {
       setError("An error occurred during login");

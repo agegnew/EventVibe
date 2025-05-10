@@ -20,23 +20,21 @@ export function Header() {
   // Check if the current path is admin
   const isAdminPage = pathname.startsWith("/admin")
 
-  // Don't show header on admin pages
-  if (isAdminPage) {
-    return null
-  }
-
   const handleScrollRef = useRef(() => {
     setIsScrolled(window.scrollY > 10)
   })
 
   useEffect(() => {
-    const handleScroll = () => {
-      handleScrollRef.current()
-    }
+    // Only add scroll event listener if not on admin page
+    if (!isAdminPage) {
+      const handleScroll = () => {
+        handleScrollRef.current()
+      }
 
-    window.addEventListener("scroll", handleScroll)
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
+      window.addEventListener("scroll", handleScroll)
+      return () => window.removeEventListener("scroll", handleScroll)
+    }
+  }, [isAdminPage])
 
   const navItems = [
     { name: "Home", href: "/" },
@@ -47,8 +45,15 @@ export function Header() {
   ]
 
   const handleLogout = () => {
-    logout();
+    // Close mobile menu first if open
     setIsMobileMenuOpen(false);
+    
+    // Add a small delay for better UX
+    setTimeout(() => {
+      // Call the logout function directly
+      logout();
+      // No need for any redirect as the logout function now handles this
+    }, 100);
   };
 
   const headerVariants = {
@@ -63,6 +68,11 @@ export function Header() {
       boxShadow: "none",
     }
   };
+
+  // Don't show header on admin pages
+  if (isAdminPage) {
+    return null
+  }
 
   return (
     <motion.header 

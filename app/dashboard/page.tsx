@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion } from "framer-motion"
-import { Calendar, Clock, MapPin, Ticket, Settings, Bell, LogOut, User, Grid, List, Upload } from "lucide-react"
+import { Calendar, Clock, MapPin, Ticket, Settings, Bell, LogOut, User, Grid, List, Upload, AlertCircle } from "lucide-react"
 import { GlassmorphicCard } from "@/components/ui-elements/glassmorphic-card"
 import { NeumorphicButton } from "@/components/ui-elements/neumorphic-button"
 import { NeumorphicTabs, NeumorphicTabsContent } from "@/components/ui-elements/neumorphic-tabs"
@@ -13,81 +13,11 @@ import { Calendar3D } from "@/components/calendar-3d"
 import { SimpleCalendar } from "@/components/simple-calendar"
 import { UserAvatar } from "@/components/user-avatar"
 import { useAuth } from "@/hooks/use-auth"
-
-// Sample upcoming events
-const upcomingEvents = [
-  {
-    id: "1",
-    title: "Tech Conference 2025",
-    date: "May 15-17, 2025",
-    time: "9:00 AM - 6:00 PM",
-    location: "San Francisco, CA",
-    image: "/placeholder.svg?height=400&width=600",
-    ticketType: "VIP Pass",
-  },
-  {
-    id: "2",
-    title: "Design Summit",
-    date: "June 10-12, 2025",
-    time: "10:00 AM - 5:00 PM",
-    location: "New York, NY",
-    image: "/placeholder.svg?height=400&width=600",
-    ticketType: "General Admission",
-  },
-]
-
-// Sample past events
-const pastEvents = [
-  {
-    id: "3",
-    title: "Marketing Expo",
-    date: "March 5-7, 2025",
-    time: "9:00 AM - 5:00 PM",
-    location: "Chicago, IL",
-    image: "/placeholder.svg?height=400&width=600",
-    ticketType: "General Admission",
-  },
-  {
-    id: "4",
-    title: "AI Workshop",
-    date: "February 15, 2025",
-    time: "10:00 AM - 4:00 PM",
-    location: "Austin, TX",
-    image: "/placeholder.svg?height=400&width=600",
-    ticketType: "Workshop Pass",
-  },
-]
-
-// Sample recommended events
-const recommendedEvents = [
-  {
-    id: "5",
-    title: "Web Development Conference",
-    date: "August 20-22, 2025",
-    location: "Seattle, WA",
-    image: "/placeholder.svg?height=400&width=600",
-    price: 249,
-  },
-  {
-    id: "6",
-    title: "UX/UI Design Masterclass",
-    date: "September 15, 2025",
-    location: "Portland, OR",
-    image: "/placeholder.svg?height=400&width=600",
-    price: 199,
-  },
-  {
-    id: "7",
-    title: "Product Management Summit",
-    date: "October 10-12, 2025",
-    location: "Denver, CO",
-    image: "/placeholder.svg?height=400&width=600",
-    price: 299,
-  },
-]
+import { getAllEvents, getEventById, getUserById, Event } from "@/lib/data-service"
+import { useSearchParams } from "next/navigation"
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("upcoming")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [isLoaded, setIsLoaded] = useState(false);
@@ -97,6 +27,102 @@ export default function DashboardPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const searchParams = useSearchParams();
+  const [statusMessage, setStatusMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
+  
+  // State for user's events
+  const [userEvents, setUserEvents] = useState<Event[]>([]);
+  const [pastEvents, setPastEvents] = useState<Event[]>([]);
+  const [recommendedEvents, setRecommendedEvents] = useState<Event[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Check for messages in the URL
+  useEffect(() => {
+    const message = searchParams.get('message');
+    if (message) {
+      setStatusMessage({
+        type: 'error',
+        text: message
+      });
+      
+      // Auto-dismiss the message after 5 seconds
+      const timer = setTimeout(() => {
+        setStatusMessage(null);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams]);
+
+  // Handler for logout button click
+  const handleLogout = () => {
+    // Add a small delay to show feedback to the user
+    setStatusMessage({
+      type: 'success',
+      text: 'Logging out...'
+    });
+    
+    // Call the logout function after a short delay
+    setTimeout(() => {
+      logout();
+      // No need for manual redirect as logout function now handles this
+    }, 500);
+  };
+
+  // Load user's events
+  useEffect(() => {
+    const loadUserEvents = async () => {
+      if (!user || !user.id) return;
+      
+      try {
+        setIsLoadingEvents(true);
+        setLoadError(null);
+        
+        // First get detailed user info to get event IDs
+        const detailedUser = await getUserById(user.id);
+        if (!detailedUser) {
+          throw new Error('Failed to load user details');
+        }
+        
+        // Get all events
+        const allEvents = await getAllEvents();
+        
+        // Filter events for this user
+        const userEventIds = detailedUser.events || [];
+        const myEvents = allEvents.filter(event => userEventIds.includes(event.id));
+        
+        // Split into upcoming and past events
+        const now = new Date();
+        const upcoming = myEvents.filter(event => {
+          const eventDate = new Date(event.date);
+          return eventDate >= now;
+        });
+        
+        const past = myEvents.filter(event => {
+          const eventDate = new Date(event.date);
+          return eventDate < now;
+        });
+        
+        // Get recommended events (events user hasn't registered for)
+        const recommendedEvts = allEvents
+          .filter(event => !userEventIds.includes(event.id))
+          .filter(event => new Date(event.date) >= now)
+          .slice(0, 3); // Limit to 3 recommendations
+        
+        setUserEvents(upcoming);
+        setPastEvents(past);
+        setRecommendedEvents(recommendedEvts);
+      } catch (error) {
+        console.error('Error loading events:', error);
+        setLoadError('Failed to load your events. Please try again later.');
+      } finally {
+        setIsLoadingEvents(false);
+      }
+    };
+    
+    loadUserEvents();
+  }, [user]);
 
   // Defer non-critical animations until after page load
   useEffect(() => {
@@ -202,6 +228,28 @@ export default function DashboardPage() {
       )}
 
       <div className="container mx-auto px-4 relative z-10">
+        {statusMessage && (
+          <motion.div
+            className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
+              statusMessage.type === 'error' 
+                ? 'bg-red-100 border border-red-300 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400' 
+                : 'bg-green-100 border border-green-300 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400'
+            }`}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <AlertCircle className="h-5 w-5 flex-shrink-0" />
+            <span>{statusMessage.text}</span>
+            <button 
+              onClick={() => setStatusMessage(null)}
+              className="ml-auto text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+            >
+              &times;
+            </button>
+          </motion.div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 sm:gap-8">
           {/* Sidebar */}
           <div className="lg:col-span-1">
@@ -260,7 +308,11 @@ export default function DashboardPage() {
                     <Settings className="w-4 h-4 mr-2" />
                     Settings
                   </NeumorphicButton>
-                  <NeumorphicButton className="w-full justify-start text-sm sm:text-base" variant="outline">
+                  <NeumorphicButton 
+                    className="w-full justify-start text-sm sm:text-base" 
+                    variant="outline"
+                    onClick={handleLogout}
+                  >
                     <LogOut className="w-4 h-4 mr-2" />
                     Logout
                   </NeumorphicButton>
@@ -332,157 +384,217 @@ export default function DashboardPage() {
                   onChange={setActiveTab}
                 />
 
+                {/* Show loading state if events are loading */}
+                {isLoadingEvents && (
+                  <div className="flex justify-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                  </div>
+                )}
+
+                {/* Show error if there was a problem loading events */}
+                {loadError && (
+                  <div className="p-6 text-center text-red-500 bg-red-50 dark:bg-red-900/10 rounded-lg my-4">
+                    <p>{loadError}</p>
+                    <NeumorphicButton 
+                      className="mt-4" 
+                      size="sm"
+                      onClick={() => window.location.reload()}
+                    >
+                      Reload
+                    </NeumorphicButton>
+                  </div>
+                )}
+
+                {/* Upcoming Events Tab */}
                 <NeumorphicTabsContent id="upcoming" activeTab={activeTab}>
-                  <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 gap-6" : "space-y-4"}>
-                    {upcomingEvents.map((event, index) => (
-                      <motion.div
-                        key={event.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.5, delay: index * 0.1 }}
-                      >
-                        <GlassmorphicCard key={event.id} className={`overflow-hidden ${viewMode === "grid" ? "" : "flex"}`} borderGlow={true}>
-                          <div className={viewMode === "grid" ? "" : "flex"}>
-                            <div className={`${viewMode === "grid" ? "w-full h-48" : "w-48 h-full"} relative`}>
-                              <Image
-                                src={event.image || "/placeholder.svg"}
-                                alt={event.title}
-                                fill
-                                className="object-cover"
-                              />
-                            </div>
-                            <div className="p-6">
-                              <div className="inline-block px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-xs rounded mb-2">
-                                {event.ticketType}
-                              </div>
-                              <h3 className="text-xl font-bold mb-2">{event.title}</h3>
-                              <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                                <div className="flex items-center">
-                                  <Calendar className="w-4 h-4 mr-2" />
-                                  <span>{event.date}</span>
+                  {!isLoadingEvents && !loadError && (
+                    <>
+                      {userEvents.length === 0 ? (
+                        <div className="p-12 text-center text-gray-500 dark:text-gray-400">
+                          <p className="mb-4">You haven't registered for any upcoming events yet.</p>
+                          <NeumorphicButton asChild>
+                            <Link href="/events">Browse Events</Link>
+                          </NeumorphicButton>
+                        </div>
+                      ) : (
+                        <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 gap-6" : "space-y-4"}>
+                          {userEvents.map((event, index) => (
+                            <motion.div
+                              key={event.id}
+                              initial={{ opacity: 0, y: 20 }}
+                              whileInView={{ opacity: 1, y: 0 }}
+                              viewport={{ once: true }}
+                              transition={{ duration: 0.5, delay: index * 0.1 }}
+                            >
+                              <GlassmorphicCard key={event.id} className={`overflow-hidden ${viewMode === "grid" ? "" : "flex"}`} borderGlow={true}>
+                                <div className={viewMode === "grid" ? "" : "flex"}>
+                                  <div className={`${viewMode === "grid" ? "w-full h-48" : "w-48 h-full"} relative`}>
+                                    <Image
+                                      src={event.image || "/placeholder.svg"}
+                                      alt={event.title}
+                                      fill
+                                      className="object-cover"
+                                    />
+                                  </div>
+                                  <div className="p-6">
+                                    <div className="inline-block px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-xs rounded mb-2">
+                                      {event.category}
+                                    </div>
+                                    <h3 className="text-xl font-bold mb-2">{event.title}</h3>
+                                    <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                                      <div className="flex items-center">
+                                        <Calendar className="w-4 h-4 mr-2" />
+                                        <span>{new Date(event.date).toLocaleDateString()}</span>
+                                      </div>
+                                      <div className="flex items-center">
+                                        <Clock className="w-4 h-4 mr-2" />
+                                        <span>{event.price === 0 ? 'Free' : `$${event.price}`}</span>
+                                      </div>
+                                      <div className="flex items-center">
+                                        <MapPin className="w-4 h-4 mr-2" />
+                                        <span>{event.location}</span>
+                                      </div>
+                                    </div>
+                                    <div className="mt-4 flex gap-2">
+                                      <NeumorphicButton asChild size="sm">
+                                        <Link href={`/events/${event.id}`}>View Details</Link>
+                                      </NeumorphicButton>
+                                      <NeumorphicButton variant="outline" size="sm">
+                                        <Ticket className="w-4 h-4 mr-1" /> Ticket
+                                      </NeumorphicButton>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex items-center">
-                                  <Clock className="w-4 h-4 mr-2" />
-                                  <span>{event.time}</span>
-                                </div>
-                                <div className="flex items-center">
-                                  <MapPin className="w-4 h-4 mr-2" />
-                                  <span>{event.location}</span>
-                                </div>
-                              </div>
-                              <div className="mt-4 flex gap-2">
-                                <NeumorphicButton asChild size="sm">
-                                  <Link href={`/events/${event.id}`}>View Details</Link>
-                                </NeumorphicButton>
-                                <NeumorphicButton variant="outline" size="sm">
-                                  <Ticket className="w-4 h-4 mr-1" /> Ticket
-                                </NeumorphicButton>
-                              </div>
-                            </div>
-                          </div>
-                        </GlassmorphicCard>
-                      </motion.div>
-                    ))}
-                  </div>
+                              </GlassmorphicCard>
+                            </motion.div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </NeumorphicTabsContent>
 
+                {/* Past Events Tab */}
                 <NeumorphicTabsContent id="past" activeTab={activeTab}>
-                  <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 gap-6" : "space-y-4"}>
-                    {pastEvents.map((event, index) => (
-                      <motion.div
-                        key={event.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.5, delay: index * 0.1 }}
-                      >
-                        <GlassmorphicCard key={event.id} className={`overflow-hidden ${viewMode === "grid" ? "" : "flex"}`} borderGlow={true}>
-                          <div className={viewMode === "grid" ? "" : "flex"}>
-                            <div className={`${viewMode === "grid" ? "w-full h-48" : "w-48 h-full"} relative`}>
-                              <Image
-                                src={event.image || "/placeholder.svg"}
-                                alt={event.title}
-                                fill
-                                className="object-cover"
-                              />
-                            </div>
-                            <div className="p-6">
-                              <div className="inline-block px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs rounded mb-2">
-                                {event.ticketType}
-                              </div>
-                              <h3 className="text-xl font-bold mb-2">{event.title}</h3>
-                              <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                                <div className="flex items-center">
-                                  <Calendar className="w-4 h-4 mr-2" />
-                                  <span>{event.date}</span>
+                  {!isLoadingEvents && !loadError && (
+                    <>
+                      {pastEvents.length === 0 ? (
+                        <div className="p-12 text-center text-gray-500 dark:text-gray-400">
+                          <p>You haven't attended any events yet.</p>
+                        </div>
+                      ) : (
+                        <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 gap-6" : "space-y-4"}>
+                          {pastEvents.map((event, index) => (
+                            <motion.div
+                              key={event.id}
+                              initial={{ opacity: 0, y: 20 }}
+                              whileInView={{ opacity: 1, y: 0 }}
+                              viewport={{ once: true }}
+                              transition={{ duration: 0.5, delay: index * 0.1 }}
+                            >
+                              <GlassmorphicCard key={event.id} className={`overflow-hidden ${viewMode === "grid" ? "" : "flex"}`} borderGlow={true}>
+                                <div className={viewMode === "grid" ? "" : "flex"}>
+                                  <div className={`${viewMode === "grid" ? "w-full h-48" : "w-48 h-full"} relative`}>
+                                    <Image
+                                      src={event.image || "/placeholder.svg"}
+                                      alt={event.title}
+                                      fill
+                                      className="object-cover"
+                                    />
+                                  </div>
+                                  <div className="p-6">
+                                    <div className="inline-block px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs rounded mb-2">
+                                      {event.category}
+                                    </div>
+                                    <h3 className="text-xl font-bold mb-2">{event.title}</h3>
+                                    <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                                      <div className="flex items-center">
+                                        <Calendar className="w-4 h-4 mr-2" />
+                                        <span>{new Date(event.date).toLocaleDateString()}</span>
+                                      </div>
+                                      <div className="flex items-center">
+                                        <Clock className="w-4 h-4 mr-2" />
+                                        <span>{event.price === 0 ? 'Free' : `$${event.price}`}</span>
+                                      </div>
+                                      <div className="flex items-center">
+                                        <MapPin className="w-4 h-4 mr-2" />
+                                        <span>{event.location}</span>
+                                      </div>
+                                    </div>
+                                    <div className="mt-4">
+                                      <NeumorphicButton asChild size="sm">
+                                        <Link href={`/events/${event.id}`}>View Details</Link>
+                                      </NeumorphicButton>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex items-center">
-                                  <Clock className="w-4 h-4 mr-2" />
-                                  <span>{event.time}</span>
-                                </div>
-                                <div className="flex items-center">
-                                  <MapPin className="w-4 h-4 mr-2" />
-                                  <span>{event.location}</span>
-                                </div>
-                              </div>
-                              <div className="mt-4">
-                                <NeumorphicButton asChild size="sm">
-                                  <Link href={`/events/${event.id}`}>View Details</Link>
-                                </NeumorphicButton>
-                              </div>
-                            </div>
-                          </div>
-                        </GlassmorphicCard>
-                      </motion.div>
-                    ))}
-                  </div>
+                              </GlassmorphicCard>
+                            </motion.div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </NeumorphicTabsContent>
 
+                {/* Recommended Events Tab */}
                 <NeumorphicTabsContent id="recommended" activeTab={activeTab}>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {recommendedEvents.map((event, index) => (
-                      <motion.div
-                        key={event.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.5, delay: index * 0.1 }}
-                      >
-                        <GlassmorphicCard className="overflow-hidden h-full flex flex-col" borderGlow={true}>
-                          <div className="relative h-48">
-                            <Image
-                              src={event.image || "/placeholder.svg"}
-                              alt={event.title}
-                              fill
-                              className="object-cover"
-                            />
-                          </div>
-                          <div className="p-6 flex-1 flex flex-col">
-                            <h3 className="text-xl font-bold mb-2">{event.title}</h3>
-                            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 flex-1">
-                              <div className="flex items-center">
-                                <Calendar className="w-4 h-4 mr-2" />
-                                <span>{event.date}</span>
-                              </div>
-                              <div className="flex items-center">
-                                <MapPin className="w-4 h-4 mr-2" />
-                                <span>{event.location}</span>
-                              </div>
-                              <div className="flex items-center">
-                                <span className="font-semibold">${event.price}</span>
-                              </div>
-                            </div>
-                            <div className="mt-4">
-                              <NeumorphicButton asChild size="sm" className="w-full">
-                                <Link href={`/events/${event.id}`}>View Details</Link>
-                              </NeumorphicButton>
-                            </div>
-                          </div>
-                        </GlassmorphicCard>
-                      </motion.div>
-                    ))}
-                  </div>
+                  {!isLoadingEvents && !loadError && (
+                    <>
+                      {recommendedEvents.length === 0 ? (
+                        <div className="p-12 text-center text-gray-500 dark:text-gray-400">
+                          <p className="mb-4">No recommended events available right now.</p>
+                          <NeumorphicButton asChild>
+                            <Link href="/events">Browse All Events</Link>
+                          </NeumorphicButton>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          {recommendedEvents.map((event, index) => (
+                            <motion.div
+                              key={event.id}
+                              initial={{ opacity: 0, y: 20 }}
+                              whileInView={{ opacity: 1, y: 0 }}
+                              viewport={{ once: true }}
+                              transition={{ duration: 0.5, delay: index * 0.1 }}
+                            >
+                              <GlassmorphicCard className="overflow-hidden h-full flex flex-col" borderGlow={true}>
+                                <div className="relative h-48">
+                                  <Image
+                                    src={event.image || "/placeholder.svg"}
+                                    alt={event.title}
+                                    fill
+                                    className="object-cover"
+                                  />
+                                </div>
+                                <div className="p-6 flex-1 flex flex-col">
+                                  <h3 className="text-xl font-bold mb-2">{event.title}</h3>
+                                  <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 flex-1">
+                                    <div className="flex items-center">
+                                      <Calendar className="w-4 h-4 mr-2" />
+                                      <span>{new Date(event.date).toLocaleDateString()}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <MapPin className="w-4 h-4 mr-2" />
+                                      <span>{event.location}</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <span className="font-semibold">{event.price === 0 ? 'Free' : `$${event.price}`}</span>
+                                    </div>
+                                  </div>
+                                  <div className="mt-4">
+                                    <NeumorphicButton asChild size="sm" className="w-full">
+                                      <Link href={`/events/${event.id}`}>View Details</Link>
+                                    </NeumorphicButton>
+                                  </div>
+                                </div>
+                              </GlassmorphicCard>
+                            </motion.div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </NeumorphicTabsContent>
               </motion.div>
             </motion.div>

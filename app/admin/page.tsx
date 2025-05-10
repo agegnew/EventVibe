@@ -14,6 +14,8 @@ import { AdminChart } from "@/components/admin-chart"
 import { EventManager } from "@/components/admin/event-manager"
 import { UserManager } from "@/components/admin/user-manager"
 import { getAllEvents, getAllUsers } from "@/lib/data-service"
+import { useAuth } from "@/hooks/use-auth"
+import { useRouter } from "next/navigation"
 
 // Sample events data
 const events = [
@@ -70,6 +72,8 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("dashboard")
   const [isLoaded, setIsLoaded] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const { isAdmin, isLoggedIn, user } = useAuth()
+  const router = useRouter()
   
   // Dashboard stats state
   const [eventCount, setEventCount] = useState(0)
@@ -77,8 +81,26 @@ export default function AdminPage() {
   const [totalRevenue, setTotalRevenue] = useState(0)
   const [activeEventCount, setActiveEventCount] = useState(0)
 
+  // Client-side protection for admin routes
+  useEffect(() => {
+    // Check if user is logged in
+    if (!isLoggedIn) {
+      router.push('/login?message=You must be logged in as an admin to access this page&redirect=/admin')
+      return
+    }
+    
+    // Check if user is an admin
+    if (!isAdmin) {
+      router.push('/dashboard?message=You do not have permission to access the admin area')
+      return
+    }
+  }, [isLoggedIn, isAdmin, router])
+
   // Load dashboard data
   useEffect(() => {
+    // Only load data if user is admin to avoid unnecessary api calls
+    if (!isAdmin) return
+    
     async function loadDashboardData() {
       try {
         const events = await getAllEvents()
@@ -98,7 +120,7 @@ export default function AdminPage() {
     }
     
     loadDashboardData()
-  }, [])
+  }, [isAdmin])
 
   // Defer animations until after page load
   useEffect(() => {
@@ -107,6 +129,11 @@ export default function AdminPage() {
     }, 100)
     return () => clearTimeout(timer)
   }, [])
+
+  // If the user isn't an admin, show nothing while redirecting
+  if (!isAdmin) {
+    return null
+  }
 
   return (
     <div className="flex min-h-screen bg-mesh-gradient dark:from-gray-900 dark:to-gray-800 relative overflow-hidden animated-bg">

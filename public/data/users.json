@@ -27,9 +27,12 @@
     "password": "qqq111",
     "role": "user",
     "avatar": "/data/images/users/d90d527a-4aec-4a6d-a035-0a8eb85e0bc8.jpg",
-    "events": [],
+    "events": [
+      "9a405280-c5dd-441f-bceb-5e9f372d53fa",
+      "3261fd3c-a1bc-4cec-bdd8-24b5796f9d8d"
+    ],
     "id": "90d40bf1-a610-4cf4-bebf-7b1558c3faae",
     "createdAt": "2025-05-10T16:47:15.690Z",
-    "updatedAt": "2025-05-10T16:47:15.690Z"
+    "updatedAt": "2025-05-10T17:02:52.955Z"
   }
 ]
