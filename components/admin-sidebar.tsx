@@ -2,8 +2,10 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Home, Calendar, Users, BarChart2, Settings, LogOut, Menu, X } from "lucide-react"
 import { GlassmorphicCard } from "@/components/ui-elements/glassmorphic-card"
+import { useAuth } from "@/hooks/use-auth"
 
 interface AdminSidebarProps {
   activeTab: string
@@ -18,6 +20,9 @@ export function AdminSidebar({
   isMobileOpen, 
   setIsMobileOpen 
 }: AdminSidebarProps) {
+  const router = useRouter();
+  const { logout } = useAuth();
+
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: Home },
     { id: "events", label: "Events", icon: Calendar },
@@ -31,6 +36,15 @@ export function AdminSidebar({
     if (setIsMobileOpen) {
       setIsMobileOpen(false)
     }
+  }
+
+  const handleExitAdmin = () => {
+    if (setIsMobileOpen) {
+      setIsMobileOpen(false)
+    }
+    
+    // Simply redirect to the main site without logging out
+    router.push('/');
   }
 
   return (
@@ -85,14 +99,22 @@ export function AdminSidebar({
             </nav>
           </GlassmorphicCard>
 
-          <GlassmorphicCard className="p-4 mt-auto">
-            <Link
-              href="/"
+          <GlassmorphicCard className="p-4 mt-auto space-y-2">
+            <button
+              onClick={handleExitAdmin}
               className="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-800/50 transition-colors"
             >
+              <Home className="mr-3 h-5 w-5" />
+              Return to Site
+            </button>
+            
+            <button
+              onClick={() => logout()}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            >
               <LogOut className="mr-3 h-5 w-5" />
-              Exit Admin
-            </Link>
+              Logout
+            </button>
           </GlassmorphicCard>
         </div>
       </div>

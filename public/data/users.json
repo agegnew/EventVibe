@@ -34,5 +34,16 @@
     "id": "90d40bf1-a610-4cf4-bebf-7b1558c3faae",
     "createdAt": "2025-05-10T16:47:15.690Z",
     "updatedAt": "2025-05-10T17:02:52.955Z"
+  },
+  {
+    "name": "Agegnew Mersha",
+    "email": "amersha@student.42abudhabi.ae",
+    "password": "",
+    "role": "user",
+    "avatar": "https://cdn.intra.42.fr/users/55d38c393649f39d3f7032c3cdfdc103/amersha.jpg",
+    "events": [],
+    "id": "0ac1a0b5-5434-45c7-81d7-60a59d65a239",
+    "createdAt": "2025-05-10T20:16:40.466Z",
+    "updatedAt": "2025-05-10T20:16:40.466Z"
   }
 ]

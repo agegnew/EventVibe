@@ -13,6 +13,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<User | null>;
+  loginWith42: () => void;
   signup: (name: string, email: string, password: string) => Promise<User | null>;
   logout: () => void;
   isLoggedIn: boolean;
@@ -31,11 +32,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     localStorage.removeItem(AUTH_TIMESTAMP_KEY);
     Cookies.remove('user', { path: '/' });
+    Cookies.remove('auth_timestamp', { path: '/' });
   };
 
   // Check if the stored session is still valid based on timestamp
   const isSessionValid = (): boolean => {
     try {
+      // First check cookie timestamp (for OAuth login)
+      const cookieTimestamp = Cookies.get('auth_timestamp');
+      if (cookieTimestamp) {
+        const loginTime = parseInt(cookieTimestamp, 10);
+        const currentTime = new Date().getTime();
+        return currentTime - loginTime < SESSION_MAX_AGE;
+      }
+      
+      // Then check localStorage timestamp (for email/password login)
       const timestamp = localStorage.getItem(AUTH_TIMESTAMP_KEY);
       if (!timestamp) return false;
       
@@ -45,28 +56,83 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Check if the session has expired
       return currentTime - loginTime < SESSION_MAX_AGE;
     } catch (error) {
+      console.error('Error checking session validity:', error);
       return false;
     }
   };
 
-  // On mount, check localStorage and cookies for user data
+  // On mount, check cookies first (for OAuth) then localStorage for user data
   useEffect(() => {
     try {
-      // First verify the session is still valid
+      // First check for cookie-based auth (42 OAuth)
+      const userCookie = Cookies.get('user');
+      if (userCookie) {
+        try {
+          console.log('Found user cookie, checking validity');
+          const userData = JSON.parse(userCookie);
+          setUser(userData);
+          
+          // Save to localStorage for consistency
+          localStorage.setItem(AUTH_STORAGE_KEY, userCookie);
+          
+          const cookieTimestamp = Cookies.get('auth_timestamp');
+          if (cookieTimestamp) {
+            localStorage.setItem(AUTH_TIMESTAMP_KEY, cookieTimestamp);
+          } else {
+            // If no timestamp in cookie, set current time
+            const now = String(new Date().getTime());
+            localStorage.setItem(AUTH_TIMESTAMP_KEY, now);
+            Cookies.set('auth_timestamp', now, { 
+              expires: 1, // 1 day
+              path: '/',
+              sameSite: 'lax'
+            });
+          }
+          
+          console.log('Loaded user from cookie:', userData.name);
+          setLoading(false);
+          return;
+        } catch (error) {
+          console.error('Error parsing user cookie:', error);
+          Cookies.remove('user');
+          Cookies.remove('auth_timestamp');
+        }
+      }
+      
+      // Then check localStorage if cookie auth failed
       if (isSessionValid()) {
-        // Then check for user data
         const savedUser = localStorage.getItem(AUTH_STORAGE_KEY);
         if (savedUser) {
-          setUser(JSON.parse(savedUser));
+          const userData = JSON.parse(savedUser);
+          setUser(userData);
+          console.log('Loaded user from localStorage:', userData.name);
+          
+          // Also set cookie for cross-tab consistency
+          Cookies.set('user', savedUser, { 
+            expires: 1, // 1 day
+            path: '/',
+            sameSite: 'lax'
+          });
+          
+          const timestamp = localStorage.getItem(AUTH_TIMESTAMP_KEY);
+          if (timestamp) {
+            Cookies.set('auth_timestamp', timestamp, { 
+              expires: 1, // 1 day
+              path: '/',
+              sameSite: 'lax'
+            });
+          }
         } else {
+          console.log('No user data found in localStorage');
           clearAuthData(); // Clear partial data if user data is missing
         }
       } else {
+        console.log('Session expired or invalid');
         // Session expired, clear all auth data
         clearAuthData();
       }
     } catch (error) {
-      console.error('Error loading user from localStorage:', error);
+      console.error('Error loading user from storage:', error);
       // Clear potentially corrupted data
       clearAuthData();
     } finally {
@@ -85,16 +151,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (loggedInUser) {
         setUser(loggedInUser);
+        console.log('User logged in:', loggedInUser.name);
         
         // Save to localStorage with current timestamp
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(loggedInUser));
-        localStorage.setItem(AUTH_TIMESTAMP_KEY, String(new Date().getTime()));
+        const userJson = JSON.stringify(loggedInUser);
+        const timestamp = String(new Date().getTime());
         
-        // Save to cookies for middleware access
-        Cookies.set('user', JSON.stringify(loggedInUser), { 
+        localStorage.setItem(AUTH_STORAGE_KEY, userJson);
+        localStorage.setItem(AUTH_TIMESTAMP_KEY, timestamp);
+        
+        // Save to cookies for middleware access and cross-tab consistency
+        Cookies.set('user', userJson, { 
           expires: 1, // 1 day
           path: '/',
-          sameSite: 'strict'
+          sameSite: 'lax'
+        });
+        
+        Cookies.set('auth_timestamp', timestamp, { 
+          expires: 1, // 1 day
+          path: '/',
+          sameSite: 'lax'
         });
       }
       
@@ -105,6 +181,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Login with 42 OAuth
+  const loginWith42 = () => {
+    console.log('Redirecting to 42 OAuth');
+    window.location.href = '/api/auth/42';
   };
 
   const signup = async (name: string, email: string, password: string): Promise<User | null> => {
@@ -135,6 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    console.log('Logging out user');
     clearAuthData();
     // Force reload to clear any component state
     window.location.href = '/';
@@ -144,6 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const intervalId = setInterval(() => {
       if (user && !isSessionValid()) {
+        console.log('Session expired, logging out');
         clearAuthData();
       }
     }, 60000);
@@ -155,7 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAdmin = isLoggedIn && user?.role === 'admin';
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout, isLoggedIn, isAdmin }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWith42, signup, logout, isLoggedIn, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );

@@ -20,7 +20,7 @@ function LoginContent() {
   const [success, setSuccess] = useState("")
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const router = useRouter()
-  const { login, isLoggedIn } = useAuth()
+  const { login, isLoggedIn, loginWith42 } = useAuth()
   const searchParams = useSearchParams()
 
   // Defer non-critical animations until after page load
@@ -248,8 +248,13 @@ function LoginContent() {
               <NeumorphicButton variant="outline" className="w-full" type="button">
                 Apple
               </NeumorphicButton>
-              <NeumorphicButton variant="outline" className="w-full" type="button">
-                GitHub
+              <NeumorphicButton 
+                variant="outline" 
+                className="w-full" 
+                type="button"
+                onClick={() => loginWith42()}
+              >
+                42
               </NeumorphicButton>
             </div>
           </motion.div>

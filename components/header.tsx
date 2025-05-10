@@ -144,10 +144,17 @@ export function Header() {
                         <Link href="/admin">Admin</Link>
                       </NeumorphicButton>
                     )}
-                    <NeumorphicButton asChild variant="outline" className="hover-float">
-                      <Link href="/dashboard">
-                        <User className="h-4 w-4 mr-1" />
-                        {user?.name}
+                    <NeumorphicButton asChild variant="outline" className="hover-float group">
+                      <Link href="/dashboard" className="flex items-center">
+                        {user?.avatar && (
+                          <img 
+                            src={user.avatar} 
+                            alt={user?.name || "User"} 
+                            className="h-6 w-6 rounded-full mr-2 object-cover border border-gray-200 dark:border-gray-700"
+                          />
+                        )}
+                        {!user?.avatar && <User className="h-4 w-4 mr-1" />}
+                        <span>{user?.name || user?.email || "User"}</span>
                       </Link>
                     </NeumorphicButton>
                     <NeumorphicButton onClick={handleLogout} className="hover-float">
@@ -218,8 +225,15 @@ export function Header() {
                         )}
                         <NeumorphicButton asChild variant="outline">
                           <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
-                            <User className="h-4 w-4 mr-1" />
-                            {user?.name}
+                            {user?.avatar && (
+                              <img 
+                                src={user.avatar} 
+                                alt={user?.name || "User"} 
+                                className="h-6 w-6 rounded-full mr-2 object-cover border border-gray-200 dark:border-gray-700"
+                              />
+                            )}
+                            {!user?.avatar && <User className="h-4 w-4 mr-1" />}
+                            <span>{user?.name || user?.email || "User"}</span>
                           </Link>
                         </NeumorphicButton>
                         <NeumorphicButton onClick={handleLogout}>
