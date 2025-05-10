@@ -1,0 +1,188 @@
+"use client"
+
+import { useState, useEffect, useRef } from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { motion, AnimatePresence } from "framer-motion"
+import { Menu, X, Sun, Moon, Calendar } from "lucide-react"
+import { useTheme } from "next-themes"
+import { NeumorphicButton } from "@/components/ui-elements/neumorphic-button"
+import { GlassmorphicCard } from "@/components/ui-elements/glassmorphic-card"
+
+export function Header() {
+  const [isScrolled, setIsScrolled] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { theme, setTheme } = useTheme()
+  const pathname = usePathname()
+
+  // Check if the current path is admin
+  const isAdminPage = pathname.startsWith("/admin")
+
+  // Don't show header on admin pages
+  if (isAdminPage) {
+    return null
+  }
+
+  const handleScrollRef = useRef(() => {
+    setIsScrolled(window.scrollY > 10)
+  })
+
+  useEffect(() => {
+    const handleScroll = () => {
+      handleScrollRef.current()
+    }
+
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  const navItems = [
+    { name: "Home", href: "/" },
+    { name: "Events", href: "/events" },
+    { name: "Dashboard", href: "/dashboard" },
+    { name: "About", href: "#" },
+    { name: "Contact", href: "#" },
+  ]
+
+  const headerVariants = {
+    scrolled: {
+      height: 70,
+      backdropFilter: "blur(10px)",
+      boxShadow: "0 10px 30px rgba(0, 0, 0, 0.05)",
+    },
+    top: {
+      height: 90,
+      backdropFilter: "blur(0px)",
+      boxShadow: "none",
+    }
+  };
+
+  return (
+    <motion.header 
+      className="fixed top-0 left-0 right-0 z-50 px-4 md:px-8"
+      initial="top"
+      animate={isScrolled ? "scrolled" : "top"}
+      variants={headerVariants}
+      transition={{ duration: 0.3 }}
+    >
+      <div className="max-w-7xl mx-auto mt-6">
+        <GlassmorphicCard 
+          className={`w-full px-4 py-2 flex items-center transition-all duration-300 
+            ${isScrolled ? 'bg-white/80 dark:bg-gray-900/80' : 'bg-white/40 dark:bg-gray-900/40'}`}
+          borderGlow={true}
+        >
+          <div className="container mx-auto flex items-center justify-between">
+            <Link href="/" className="flex items-center group">
+              <div className="relative w-10 h-10 flex items-center justify-center mr-2 bg-blue-600/10 dark:bg-blue-400/10 rounded-full overflow-hidden transition-transform group-hover:scale-110">
+                <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400 transition-transform group-hover:scale-110" />
+                <div className="absolute inset-0 bg-blue-600/5 dark:bg-blue-400/5 rounded-full transform scale-0 group-hover:scale-100 transition-transform"></div>
+              </div>
+              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-cyan-500 cursor-highlight">
+                EventVibe
+              </span>
+            </Link>
+
+            {/* Desktop Navigation */}
+            <nav className="hidden md:flex items-center space-x-1">
+              {navItems.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all relative cursor-highlight ${
+                    pathname === item.href
+                      ? "text-blue-600 dark:text-blue-400"
+                      : "text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+                  }`}
+                >
+                  {item.name}
+                  {pathname === item.href && (
+                    <motion.div
+                      layoutId="nav-underline"
+                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  )}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="flex items-center gap-2">
+              <motion.button
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                aria-label="Toggle theme"
+                whileTap={{ scale: 0.9 }}
+                whileHover={{ scale: 1.1 }}
+              >
+                {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </motion.button>
+
+              <div className="hidden md:flex items-center gap-2">
+                <NeumorphicButton asChild variant="outline" className="hover-float">
+                  <Link href="/login">Sign In</Link>
+                </NeumorphicButton>
+                <NeumorphicButton asChild className="hover-float">
+                  <Link href="/signup">Sign Up</Link>
+                </NeumorphicButton>
+              </div>
+
+              <motion.button
+                className="md:hidden p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                aria-label="Toggle menu"
+                whileTap={{ scale: 0.9 }}
+                whileHover={{ scale: 1.1 }}
+              >
+                {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </motion.button>
+            </div>
+          </div>
+        </GlassmorphicCard>
+      </div>
+
+      {/* Mobile Navigation */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="md:hidden dropdown-animation"
+          >
+            <div className="max-w-7xl mx-auto mt-2">
+              <GlassmorphicCard className="mx-4 p-4" borderGlow={true}>
+                <nav className="flex flex-col space-y-2">
+                  {navItems.map((item) => (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                        pathname === item.href
+                          ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                      }`}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                  <div className="flex flex-col space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <NeumorphicButton asChild variant="outline">
+                      <Link href="/login">Sign In</Link>
+                    </NeumorphicButton>
+                    <NeumorphicButton asChild>
+                      <Link href="/signup">Sign Up</Link>
+                    </NeumorphicButton>
+                  </div>
+                </nav>
+              </GlassmorphicCard>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.header>
+  )
+}
