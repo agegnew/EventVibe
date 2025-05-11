@@ -14,17 +14,16 @@ class RealtimeSync {
   private eventListeners: Map<string, Set<(data: any) => void>> = new Map();
   private isSupported: boolean = typeof BroadcastChannel !== 'undefined';
   private instanceId: string = Math.random().toString(36).substring(2, 9);
-  private debug: boolean = true; // Set to true for verbose logging
+  private debug: boolean = false; // Disable debug logging
   private storageListener: ((e: StorageEvent) => void) | null = null;
 
   private constructor() {
-    console.log(`[RealtimeSync] Initializing instance ID: ${this.instanceId}`);
+    // Initialize with given instance ID
     
     // Try to use BroadcastChannel API
     if (this.isSupported) {
       this.initChannel();
     } else {
-      console.warn('[RealtimeSync] BroadcastChannel is not supported in this browser. Falling back to localStorage.');
       this.initLocalStorageFallback();
     }
   }
@@ -34,7 +33,6 @@ class RealtimeSync {
       this.logDebug('Initializing BroadcastChannel');
       this.channel = new BroadcastChannel('eventvibe-sync');
       this.channel.onmessage = this.handleMessage.bind(this);
-      console.log('[RealtimeSync] Real-time sync initialized via BroadcastChannel');
       
       // Set up a ping to verify communication
       this.pingChannel();
@@ -83,7 +81,6 @@ class RealtimeSync {
     };
     
     window.addEventListener('storage', this.storageListener);
-    console.log('[RealtimeSync] Real-time sync initialized via localStorage fallback');
   }
 
   private handleMessage(event: MessageEvent) {
@@ -187,6 +184,18 @@ class RealtimeSync {
         this.eventListeners.delete(type);
       }
     };
+  }
+
+  public unsubscribe(type: EventType, callback: (data: any) => void): void {
+    this.logDebug(`Unsubscribing from event type: ${type}`);
+    
+    const listeners = this.eventListeners.get(type);
+    if (listeners) {
+      listeners.delete(callback);
+      if (listeners.size === 0) {
+        this.eventListeners.delete(type);
+      }
+    }
   }
 
   public cleanUp(): void {

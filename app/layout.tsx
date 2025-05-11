@@ -6,6 +6,8 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { AuthProvider } from "@/hooks/use-auth"
+import { NotificationsProvider } from "@/hooks/use-notifications"
+import { NotificationPopup } from "@/components/notification-popup"
 
 // Optimize font loading
 const poppins = Poppins({
@@ -42,13 +44,16 @@ export default function RootLayout({
       <body className={`${poppins.variable} font-sans antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <AuthProvider>
-            <div className="flex flex-col min-h-screen">
-              <Header />
-              <main className="flex-grow">
-                {children}
-              </main>
-              <Footer />
-            </div>
+            <NotificationsProvider>
+              <div className="flex flex-col min-h-screen">
+                <Header />
+                <NotificationPopup />
+                <main className="flex-grow">
+                  {children}
+                </main>
+                <Footer />
+              </div>
+            </NotificationsProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

@@ -11,6 +11,7 @@ import { useEffect, useState } from "react"
 import HeroAnimation from "@/components/hero-animation"
 import { Event, getAllEvents } from "@/lib/data-service"
 import { useAuth } from "@/hooks/use-auth"
+import { Button } from "@/components/ui/button"
 
 export default function Home() {
   const [isLoaded, setIsLoaded] = useState(false);

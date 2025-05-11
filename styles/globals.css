@@ -92,3 +92,24 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes shrink {
+  0% { width: 100%; }
+  95% { width: 5%; }
+  100% { width: 0%; }
+}
+
+.animate-shrink {
+  animation: shrink 20s linear forwards;
+  will-change: width;
+}
+
+@keyframes progress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+.animate-progress {
+  animation: progress 10s linear forwards;
+  will-change: width;
+}

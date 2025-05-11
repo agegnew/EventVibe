@@ -9,6 +9,7 @@ import { useTheme } from "next-themes"
 import { NeumorphicButton } from "@/components/ui-elements/neumorphic-button"
 import { GlassmorphicCard } from "@/components/ui-elements/glassmorphic-card"
 import { useAuth } from "@/hooks/use-auth"
+import { NotificationBell } from "@/components/notification-bell"
 
 export function Header() {
   const [isScrolled, setIsScrolled] = useState(false)
@@ -135,6 +136,8 @@ export function Header() {
               >
                 {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               </motion.button>
+
+              {isLoggedIn && <div className="relative"><NotificationBell /></div>}
 
               <div className="hidden md:flex items-center gap-2">
                 {isLoggedIn ? (

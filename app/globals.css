@@ -485,3 +485,12 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Fix for notification dropdown visibility */
+.notification-dropdown {
+  position: fixed !important;
+  z-index: 9999999 !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  display: block !important;
+}

@@ -1,21 +1,21 @@
 [
   {
-    "title": "the new events",
+    "title": "The Trip",
     "description": "this is a test event",
     "date": "2025-05-11",
     "endDate": "2025-05-11",
     "location": "Dubai, UAE",
     "category": "Technology",
-    "price": 100,
+    "price": 99.99,
     "seats": 20,
     "status": "Upcoming",
     "featured": true,
     "id": "9a405280-c5dd-441f-bceb-5e9f372d53fa",
     "image": "/data/images/events/9a405280-c5dd-441f-bceb-5e9f372d53fa.png",
-    "registrations": 1,
-    "revenue": 100,
+    "registrations": 2,
+    "revenue": 199.99,
     "createdAt": "2025-05-10T15:17:59.852Z",
-    "updatedAt": "2025-05-10T16:59:32.693Z"
+    "updatedAt": "2025-05-11T00:00:25.080Z"
   },
   {
     "title": "new one",
@@ -25,7 +25,7 @@
     "location": "Abu Dhabi",
     "category": "",
     "price": 20,
-    "seats": 50,
+    "seats": 49,
     "status": "Upcoming",
     "featured": false,
     "id": "3261fd3c-a1bc-4cec-bdd8-24b5796f9d8d",
@@ -33,7 +33,7 @@
     "registrations": 1,
     "revenue": 20,
     "createdAt": "2025-05-10T17:02:12.676Z",
-    "updatedAt": "2025-05-10T18:12:55.455Z"
+    "updatedAt": "2025-05-10T23:15:29.854Z"
   },
   {
     "title": "the otheres",
@@ -43,7 +43,7 @@
     "location": "Dubai, UAE",
     "category": "Entertainment",
     "price": 0,
-    "seats": 100,
+    "seats": 101,
     "status": "Upcoming",
     "featured": true,
     "id": "b54ab2df-04ca-48ce-8817-a837056cd2ed",
@@ -51,7 +51,7 @@
     "registrations": 0,
     "revenue": 0,
     "createdAt": "2025-05-10T17:03:30.929Z",
-    "updatedAt": "2025-05-10T17:03:30.929Z"
+    "updatedAt": "2025-05-10T23:48:48.615Z"
   },
   {
     "title": "Gaming",
@@ -97,7 +97,7 @@
     "location": "Ethiopia",
     "category": "Entertainment",
     "price": 1000,
-    "seats": 20,
+    "seats": 21,
     "status": "Upcoming",
     "featured": true,
     "id": "612945bc-6529-4ce6-be0d-7c8f170154e1",
@@ -105,6 +105,24 @@
     "registrations": 0,
     "revenue": 0,
     "createdAt": "2025-05-10T19:38:51.341Z",
-    "updatedAt": "2025-05-10T19:38:51.341Z"
+    "updatedAt": "2025-05-10T23:04:05.837Z"
+  },
+  {
+    "title": "Mechatronics Class",
+    "description": "Register now",
+    "date": "2025-05-10",
+    "endDate": "2025-05-10",
+    "location": "Abu Dhabi",
+    "category": "Technology",
+    "price": 111,
+    "seats": 11,
+    "status": "Upcoming",
+    "featured": true,
+    "id": "3cc195cd-93a5-4a23-939a-495a42d42361",
+    "image": "/data/images/events/3cc195cd-93a5-4a23-939a-495a42d42361.webp",
+    "registrations": 0,
+    "revenue": 0,
+    "createdAt": "2025-05-10T20:56:51.863Z",
+    "updatedAt": "2025-05-10T22:58:06.919Z"
   }
 ]
