@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "title": "Unregistration Successful",
+    "message": "You've successfully unregistered from \"In to the Jungle\".",
+    "type": "info",
+    "link": "/events/612945bc-6529-4ce6-be0d-7c8f170154e1",
+    "id": "notification-1746998382417-38f4hor",
+    "timestamp": 1746998382417,
+    "read": true
+  },
+  {
+    "title": "Registration Successful",
+    "message": "You've successfully registered for \"In to the Jungle\".",
+    "type": "success",
+    "link": "/events/612945bc-6529-4ce6-be0d-7c8f170154e1",
+    "id": "notification-1746998374974-6msy2p4",
+    "timestamp": 1746998374974,
+    "read": true
+  }
+]

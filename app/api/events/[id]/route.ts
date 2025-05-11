@@ -3,10 +3,12 @@ import { serverGetEventById, serverUpdateEvent, serverDeleteEvent } from '@/lib/
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
-    const event = await serverGetEventById(params.id);
+    const { params } = context;
+    const id = params.id;
+    const event = await serverGetEventById(id);
     
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
@@ -21,9 +23,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { params } = context;
     const id = params.id;
     const formData = await request.formData();
     const eventDataJson = formData.get('data') as string;
@@ -58,9 +61,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { params } = context;
     const id = params.id;
     
     const success = await serverDeleteEvent(id);

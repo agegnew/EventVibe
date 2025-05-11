@@ -1,5 +1,5 @@
 // Broadcast Channel for real-time sync across tabs
-type EventType = 'event-created' | 'event-updated' | 'event-deleted' | 'user-updated' | 'ping';
+type EventType = 'event-created' | 'event-updated' | 'event-deleted' | 'event-data-sync' | 'user-updated' | 'user-registered' | 'user-unregistered' | 'ping';
 
 interface SyncMessage {
   type: EventType;

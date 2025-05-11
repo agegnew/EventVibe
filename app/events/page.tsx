@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense, useCallback, useEffect } from "react"
-import { Filter, Search } from "lucide-react"
+import { Filter, Search, Download, Calendar } from "lucide-react"
 import { GlassmorphicCard } from "@/components/ui-elements/glassmorphic-card"
 import { NeumorphicButton } from "@/components/ui-elements/neumorphic-button"
 import { NeumorphicInput } from "@/components/ui-elements/neumorphic-input"
@@ -11,7 +11,7 @@ import { EventCard } from "@/components/event-card"
 import { EventsLoading } from "@/components/events-loading"
 import { motion } from "framer-motion"
 import { useState } from "react"
-import { Event, getAllEvents } from "@/lib/data-service"
+import { Event, getAllEvents, exportEvents } from "@/lib/data-service"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useRealtimeSync, isRealtimeSyncSupported } from "@/lib/realtime-sync"
 
@@ -43,6 +43,14 @@ const statusOptions = [
   { value: "active", label: "Active" },
   { value: "upcoming", label: "Upcoming" },
 ]
+
+// Export events in selected format
+const handleExportEvents = (format: 'csv' | 'ical', category: string, status: string) => {
+  exportEvents(format, { 
+    category, 
+    status 
+  });
+};
 
 function EventsContent() {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -358,7 +366,7 @@ function EventsContent() {
           transition={{ duration: 0.8, delay: 0.3 }}
         >
           <GlassmorphicCard className="mb-12 p-6" borderGlow={true}>
-            <div className="flex flex-col md:flex-row gap-4 items-end">
+            <div className="flex flex-col md:flex-row gap-4 items-end mb-6">
               <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Search Events</label>
                 <NeumorphicInput 
@@ -366,6 +374,7 @@ function EventsContent() {
                   icon={<Search className="h-4 w-4" />} 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
                 />
               </div>
               <div className="w-full md:w-48">
@@ -395,6 +404,26 @@ function EventsContent() {
               <div className="w-full md:w-auto">
                 <NeumorphicButton onClick={applyFilters}>Apply Filters</NeumorphicButton>
               </div>
+            </div>
+
+            <div className="flex gap-2 justify-end border-t border-gray-200 dark:border-gray-700 pt-4 mt-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 self-center mr-auto">Export Events:</label>
+              <NeumorphicButton 
+                variant="outline" 
+                className="flex items-center justify-center" 
+                onClick={() => handleExportEvents('csv', selectedCategory, selectedStatus)}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                <span>CSV</span>
+              </NeumorphicButton>
+              <NeumorphicButton 
+                variant="outline" 
+                className="flex items-center justify-center" 
+                onClick={() => handleExportEvents('ical', selectedCategory, selectedStatus)}
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                <span>Calendar</span>
+              </NeumorphicButton>
             </div>
           </GlassmorphicCard>
         </motion.div>

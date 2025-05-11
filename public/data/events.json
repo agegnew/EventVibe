@@ -12,10 +12,10 @@
     "featured": true,
     "id": "9a405280-c5dd-441f-bceb-5e9f372d53fa",
     "image": "/data/images/events/9a405280-c5dd-441f-bceb-5e9f372d53fa.png",
-    "registrations": 2,
-    "revenue": 199.99,
+    "registrations": 3,
+    "revenue": 299.98,
     "createdAt": "2025-05-10T15:17:59.852Z",
-    "updatedAt": "2025-05-11T00:00:25.080Z"
+    "updatedAt": "2025-05-11T21:08:41.695Z"
   },
   {
     "title": "new one",
@@ -30,10 +30,10 @@
     "featured": false,
     "id": "3261fd3c-a1bc-4cec-bdd8-24b5796f9d8d",
     "image": "/data/images/events/3261fd3c-a1bc-4cec-bdd8-24b5796f9d8d.png",
-    "registrations": 1,
-    "revenue": 20,
+    "registrations": 2,
+    "revenue": 40,
     "createdAt": "2025-05-10T17:02:12.676Z",
-    "updatedAt": "2025-05-10T23:15:29.854Z"
+    "updatedAt": "2025-05-11T00:03:13.130Z"
   },
   {
     "title": "the otheres",
@@ -48,10 +48,10 @@
     "featured": true,
     "id": "b54ab2df-04ca-48ce-8817-a837056cd2ed",
     "image": "/data/images/events/b54ab2df-04ca-48ce-8817-a837056cd2ed.png",
-    "registrations": 0,
+    "registrations": 1,
     "revenue": 0,
     "createdAt": "2025-05-10T17:03:30.929Z",
-    "updatedAt": "2025-05-10T23:48:48.615Z"
+    "updatedAt": "2025-05-11T00:08:17.408Z"
   },
   {
     "title": "Gaming",
@@ -84,10 +84,10 @@
     "featured": false,
     "image": "/data/images/events/d572d89b-2c26-412b-af9b-01727827d6aa.png",
     "id": "d572d89b-2c26-412b-af9b-01727827d6aa",
-    "registrations": 0,
-    "revenue": 0,
+    "registrations": 1,
+    "revenue": 330,
     "createdAt": "2025-05-10T18:49:53.476Z",
-    "updatedAt": "2025-05-10T19:37:22.365Z"
+    "updatedAt": "2025-05-11T20:19:09.800Z"
   },
   {
     "title": "In to the Jungle",
@@ -105,7 +105,7 @@
     "registrations": 0,
     "revenue": 0,
     "createdAt": "2025-05-10T19:38:51.341Z",
-    "updatedAt": "2025-05-10T23:04:05.837Z"
+    "updatedAt": "2025-05-11T21:19:42.409Z"
   },
   {
     "title": "Mechatronics Class",
@@ -120,9 +120,9 @@
     "featured": true,
     "id": "3cc195cd-93a5-4a23-939a-495a42d42361",
     "image": "/data/images/events/3cc195cd-93a5-4a23-939a-495a42d42361.webp",
-    "registrations": 0,
-    "revenue": 0,
+    "registrations": 1,
+    "revenue": 111,
     "createdAt": "2025-05-10T20:56:51.863Z",
-    "updatedAt": "2025-05-10T22:58:06.919Z"
+    "updatedAt": "2025-05-11T20:18:48.146Z"
   }
 ]

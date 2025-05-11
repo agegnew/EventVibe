@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from 'react'
-import { Bell, X, Check, RefreshCcw, ChevronDown } from 'lucide-react'
+import { Bell, X, Check, RefreshCcw, ChevronDown, AlertCircle, Calendar, Info } from 'lucide-react'
 import { useNotifications, Notification } from '@/hooks/use-notifications'
 import { useRouter } from 'next/navigation'
 import { formatDistanceToNow } from 'date-fns'
@@ -168,32 +168,76 @@ export function NotificationBell() {
           </div>
         ) : (
           <div>
-            {notifications.map((notification) => (
-              <div 
-                key={notification.id}
-                onClick={() => handleNotificationClick(notification)}
-                className={`p-3 border-b cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${notification.read ? 'bg-white dark:bg-gray-800' : 'bg-blue-50 dark:bg-blue-900/20'}`}
-              >
-                <div className="flex justify-between">
-                  <div className="font-medium text-sm">{notification.title}</div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearNotification(notification.id);
-                    }}
-                    className="text-gray-500 hover:text-red-500 text-sm"
-                  >
-                    &times;
-                  </button>
+            {notifications.map((notification) => {
+              // Get notification type indicator elements
+              const getNotificationTypeElements = (type: string) => {
+                switch(type) {
+                  case 'success':
+                    return {
+                      icon: <Check className="h-4 w-4 text-green-500" />,
+                      bgColor: notification.read ? '' : 'bg-green-50 dark:bg-green-900/20',
+                      borderLeft: 'border-l-4 border-green-500'
+                    };
+                  case 'warning':
+                    return {
+                      icon: <AlertCircle className="h-4 w-4 text-amber-500" />,
+                      bgColor: notification.read ? '' : 'bg-amber-50 dark:bg-amber-900/20',
+                      borderLeft: 'border-l-4 border-amber-500'
+                    };
+                  case 'error':
+                    return {
+                      icon: <AlertCircle className="h-4 w-4 text-red-500" />,
+                      bgColor: notification.read ? '' : 'bg-red-50 dark:bg-red-900/20',
+                      borderLeft: 'border-l-4 border-red-500'
+                    };
+                  case 'event':
+                    return {
+                      icon: <Calendar className="h-4 w-4 text-purple-500" />,
+                      bgColor: notification.read ? '' : 'bg-purple-50 dark:bg-purple-900/20',
+                      borderLeft: 'border-l-4 border-purple-500'
+                    };
+                  case 'info':
+                  default:
+                    return {
+                      icon: <Info className="h-4 w-4 text-blue-500" />,
+                      bgColor: notification.read ? '' : 'bg-blue-50 dark:bg-blue-900/20',
+                      borderLeft: 'border-l-4 border-blue-500'
+                    };
+                }
+              };
+              
+              const typeElements = getNotificationTypeElements(notification.type);
+              
+              return (
+                <div 
+                  key={notification.id}
+                  onClick={() => handleNotificationClick(notification)}
+                  className={`p-3 border-b cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${notification.read ? 'bg-white dark:bg-gray-800' : typeElements.bgColor} ${typeElements.borderLeft}`}
+                >
+                  <div className="flex justify-between">
+                    <div className="flex items-center gap-2">
+                      {typeElements.icon}
+                      <div className="font-medium text-sm">{notification.title}</div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearNotification(notification.id);
+                      }}
+                      className="text-gray-500 hover:text-red-500 text-sm"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-300 mt-1 ml-6">
+                    {notification.message}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1 ml-6">
+                    {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
+                  </div>
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
-                  {notification.message}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

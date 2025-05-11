@@ -138,14 +138,38 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       });
     };
     
+    // Handler for user event registration
+    const handleUserRegistered = (data: any) => {
+      addNotification({
+        title: 'Registration Successful',
+        message: `You've successfully registered for "${data.eventTitle}".`,
+        type: 'success',
+        link: `/events/${data.eventId}`
+      });
+    };
+    
+    // Handler for user event unregistration
+    const handleUserUnregistered = (data: any) => {
+      addNotification({
+        title: 'Unregistration Successful',
+        message: `You've successfully unregistered from "${data.eventTitle}".`,
+        type: 'info',
+        link: `/events/${data.eventId}`
+      });
+    };
+    
     // Subscribe to real-time events
     realtimeSync.subscribe('event-created', handleEventCreated);
     realtimeSync.subscribe('event-updated', handleEventUpdated);
+    realtimeSync.subscribe('user-registered', handleUserRegistered);
+    realtimeSync.subscribe('user-unregistered', handleUserUnregistered);
     
     // Clean up subscriptions
     return () => {
       realtimeSync.unsubscribe('event-created', handleEventCreated);
       realtimeSync.unsubscribe('event-updated', handleEventUpdated);
+      realtimeSync.unsubscribe('user-registered', handleUserRegistered);
+      realtimeSync.unsubscribe('user-unregistered', handleUserUnregistered);
     };
   }, []);
   

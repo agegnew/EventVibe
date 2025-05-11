@@ -3,10 +3,12 @@ import { serverGetUserById, serverUpdateUser, serverDeleteUser } from '@/lib/ser
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
-    const user = await serverGetUserById(params.id);
+    const { params } = context;
+    const id = params.id;
+    const user = await serverGetUserById(id);
     
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -14,16 +16,16 @@ export async function GET(
     
     return NextResponse.json(user);
   } catch (error) {
-    console.error('Error fetching user:', error);
     return NextResponse.json({ error: 'Failed to fetch user' }, { status: 500 });
   }
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { params } = context;
     const id = params.id;
     const formData = await request.formData();
     const userDataJson = formData.get('data') as string;
@@ -51,8 +53,6 @@ export async function PUT(
     
     return NextResponse.json(updatedUser);
   } catch (error: any) {
-    console.error('Error updating user:', error);
-    
     // Handle known errors with appropriate status codes
     if (error.message === 'Email is already in use') {
       return NextResponse.json({ error: error.message }, { status: 400 });
@@ -64,9 +64,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { params } = context;
     const id = params.id;
     
     // Try to delete the user
@@ -78,8 +79,6 @@ export async function DELETE(
     
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Error deleting user:', error);
-    
     // Handle known errors with appropriate status codes
     if (error.message === 'Cannot delete the main admin account') {
       return NextResponse.json({ error: error.message }, { status: 400 });

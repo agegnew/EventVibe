@@ -7,8 +7,9 @@ export async function GET(
   { params }: { params: { path: string[] } }
 ) {
   try {
-    // Get the path from the URL parameters
-    const imagePath = params.path.join('/');
+    // Get the path array and join it properly
+    const pathArray = params.path;
+    const imagePath = pathArray.join('/');
     
     // Construct the absolute path to the file
     const filePath = path.join(process.cwd(), 'public', imagePath);

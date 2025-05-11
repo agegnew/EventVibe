@@ -76,6 +76,9 @@ async function processSyncQueue() {
           case 'registerEvent':
             await registerForEventOnline(item.data.userId, item.data.eventId);
             break;
+          case 'unregisterEvent':
+            await unregisterFromEventOnline(item.data.userId, item.data.eventId);
+            break;
         }
         
         // Remove processed item from queue
@@ -88,6 +91,24 @@ async function processSyncQueue() {
   } catch (error) {
     console.error('[DataService] Error processing sync queue:', error);
   }
+}
+
+// Define the response types for registration/unregistration
+interface EventRegistrationResponse {
+  success: boolean;
+  message: string;
+  error?: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    events: string[];
+  };
+  event?: {
+    id: string;
+    title: string;
+    registrations: number;
+  };
 }
 
 // Events API - Client-side functions
@@ -445,7 +466,7 @@ export const validateCredentials = async (email: string, password: string): Prom
 };
 
 // Online version of registerForEvent
-async function registerForEventOnline(userId: string, eventId: string): Promise<{ success: boolean; message: string }> {
+async function registerForEventOnline(userId: string, eventId: string): Promise<EventRegistrationResponse> {
   const response = await fetch('/api/events/register', {
     method: 'POST',
     headers: {
@@ -454,21 +475,38 @@ async function registerForEventOnline(userId: string, eventId: string): Promise<
     body: JSON.stringify({ userId, eventId }),
   });
   
+  // Handle errors but don't throw exceptions
   if (!response.ok) {
     const errorData = await response.json();
-    throw new Error(errorData.message || 'Failed to register for event');
+    return { 
+      success: false, 
+      message: 'Registration failed',
+      error: errorData.error || 'Failed to register for event'
+    };
   }
   
   const data = await response.json();
   
-  // Broadcast updates
-  realtimeSync.broadcast('event-updated', { id: eventId, registrations: data.event.registrations });
+  // Only broadcast user updated and registration (skip the event-updated broadcast)
+  // This prevents the "Event Updated" notification from appearing during registration
   realtimeSync.broadcast('user-updated', data.user);
+  // Use a special event type for silent event updates during registration
+  realtimeSync.broadcast('event-data-sync', data.event);
+  realtimeSync.broadcast('user-registered', { 
+    userId: userId, 
+    eventId: eventId, 
+    eventTitle: data.event.title 
+  });
   
-  return data;
+  return {
+    success: true,
+    message: data.message || 'Successfully registered for event',
+    user: data.user,
+    event: data.event
+  };
 }
 
-export const registerForEvent = async (userId: string, eventId: string): Promise<{ success: boolean; message: string }> => {
+export const registerForEvent = async (userId: string, eventId: string): Promise<EventRegistrationResponse> => {
   if (isOnline) {
     return registerForEventOnline(userId, eventId);
   } else {
@@ -481,6 +519,64 @@ export const registerForEvent = async (userId: string, eventId: string): Promise
     return { 
       success: true, 
       message: 'Registration queued for when you are back online' 
+    };
+  }
+};
+
+// Online version of unregisterFromEvent
+async function unregisterFromEventOnline(userId: string, eventId: string): Promise<EventRegistrationResponse> {
+  const response = await fetch('/api/events/unregister', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ userId, eventId }),
+  });
+  
+  // Handle errors but don't throw exceptions
+  if (!response.ok) {
+    const errorData = await response.json();
+    return { 
+      success: false, 
+      message: 'Unregistration failed',
+      error: errorData.error || 'Failed to unregister from event'
+    };
+  }
+  
+  const data = await response.json();
+  
+  // Only broadcast user updated and unregistration (skip the event-updated broadcast)
+  // This prevents the "Event Updated" notification from appearing during unregistration
+  realtimeSync.broadcast('user-updated', data.user);
+  // Use a special event type for silent event updates during unregistration
+  realtimeSync.broadcast('event-data-sync', data.event);
+  realtimeSync.broadcast('user-unregistered', { 
+    userId: userId, 
+    eventId: eventId, 
+    eventTitle: data.event.title 
+  });
+  
+  return {
+    success: true,
+    message: data.message || 'Successfully unregistered from event',
+    user: data.user,
+    event: data.event
+  };
+}
+
+export const unregisterFromEvent = async (userId: string, eventId: string): Promise<EventRegistrationResponse> => {
+  if (isOnline) {
+    return unregisterFromEventOnline(userId, eventId);
+  } else {
+    // Offline - add to sync queue
+    console.log(`[DataService] Offline mode - queueing event unregistration for event ${eventId}`);
+    
+    // Queue for syncing later
+    await offlineDB.addToSyncQueue('unregisterEvent', { userId, eventId });
+    
+    return { 
+      success: true, 
+      message: 'Unregistration queued for when you are back online' 
     };
   }
 };
@@ -522,4 +618,27 @@ export const importEventsFromCsv = async (csvFile: File): Promise<{ events: Even
   }
   
   return result;
+};
+
+// Export events to CSV or iCal
+export const exportEvents = (format: 'csv' | 'ical', filters?: { category?: string; status?: string }) => {
+  // Construct URL with filters
+  const exportUrl = new URL(`${window.location.origin}/api/events/export`);
+  
+  // Set format (csv or ical)
+  exportUrl.searchParams.set('format', format);
+  
+  // Add optional filters
+  if (filters) {
+    if (filters.category && filters.category !== 'all') {
+      exportUrl.searchParams.set('category', filters.category);
+    }
+    
+    if (filters.status && filters.status !== 'all') {
+      exportUrl.searchParams.set('status', filters.status);
+    }
+  }
+  
+  // Trigger download by opening URL in new tab/window
+  window.open(exportUrl.toString(), '_blank');
 };

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, validateCredentials } from '@/lib/data-service';
 import Cookies from 'js-cookie';
+import { useRealtimeSync } from '@/lib/realtime-sync';
 
 // Use unique storage keys with a prefix
 const AUTH_STORAGE_KEY = 'eventvibe_auth_user';
@@ -16,6 +17,7 @@ interface AuthContextType {
   loginWith42: () => void;
   signup: (name: string, email: string, password: string) => Promise<User | null>;
   logout: () => void;
+  updateUserData: (userData: Partial<User>) => void;
   isLoggedIn: boolean;
   isAdmin: boolean;
 }
@@ -34,6 +36,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     Cookies.remove('user', { path: '/' });
     Cookies.remove('auth_timestamp', { path: '/' });
   };
+
+  // Function to update user data and persist it 
+  const updateUserData = (userData: Partial<User>) => {
+    if (!user) return;
+    
+    const updatedUser = { ...user, ...userData };
+    setUser(updatedUser);
+    
+    // Update localStorage and cookies
+    const userJson = JSON.stringify(updatedUser);
+    localStorage.setItem(AUTH_STORAGE_KEY, userJson);
+    Cookies.set('user', userJson, { 
+      expires: 1, // 1 day
+      path: '/',
+      sameSite: 'lax'
+    });
+    
+    console.log('[Auth] User data updated:', userData);
+  };
+  
+  // Listen for user-updated events from realtime sync
+  const handleUserUpdated = (updatedUserData: Partial<User> & { id: string }) => {
+    if (user && updatedUserData.id === user.id) {
+      console.log('[Auth] Received user update:', updatedUserData);
+      updateUserData(updatedUserData);
+    }
+  };
+  
+  // Subscribe to realtime updates if available
+  if (typeof window !== 'undefined') {
+    useRealtimeSync('user-updated', handleUserUpdated);
+  }
 
   // Check if the stored session is still valid based on timestamp
   const isSessionValid = (): boolean => {
@@ -239,7 +273,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAdmin = isLoggedIn && user?.role === 'admin';
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWith42, signup, logout, isLoggedIn, isAdmin }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      login, 
+      loginWith42, 
+      signup, 
+      logout,
+      updateUserData,
+      isLoggedIn, 
+      isAdmin 
+    }}>
       {children}
     </AuthContext.Provider>
   );
