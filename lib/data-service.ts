@@ -2,6 +2,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { realtimeSync } from './realtime-sync';
 import * as offlineDB from './offline-db';
 
+// Add TypeScript declaration
+declare global {
+  interface Window {
+    broadcastViaServiceWorker?: (message: { type: string; data: any }) => void;
+  }
+}
+
 // Define types
 export interface User {
   id: string;
@@ -241,28 +248,97 @@ export const createEvent = async (eventData: Omit<Event, 'id' | 'createdAt' | 'u
 
 // Online version of updateEvent
 async function updateEventOnline(id: string, eventData: Partial<Event>, imageFile?: File): Promise<Event> {
-  const formData = new FormData();
-  formData.append('data', JSON.stringify(eventData));
-  
-  if (imageFile) {
-    formData.append('image', imageFile);
+  try {
+    console.log("[DataService] Updating event", id, "with data:", eventData);
+    
+    const formData = new FormData();
+    formData.append('data', JSON.stringify(eventData));
+    
+    if (imageFile) {
+      formData.append('image', imageFile);
+    }
+    
+    const response = await fetch(`/api/events/${id}`, {
+      method: 'PUT',
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("[DataService] Error updating event:", errorData);
+      throw new Error('Failed to update event: ' + (errorData.error || 'Unknown error'));
+    }
+    
+    const updatedEvent = await response.json();
+    
+    // Ensure we have a complete event with all needed fields for notifications
+    if (!updatedEvent || !updatedEvent.id) {
+      console.error("[DataService] Received invalid event data:", updatedEvent);
+      throw new Error('Invalid event data received from server');
+    }
+    
+    console.log("[DataService] Event updated successfully, broadcasting:", updatedEvent);
+    
+    // Use a try-catch around the notification and broadcasting part
+    // to make sure event updates succeed even if notifications fail
+    try {
+      // Try multiple broadcast methods to ensure cross-browser notifications
+      // First, reset the realtime sync system to ensure fresh connections
+      realtimeSync.reset();
+      
+      // Wait a moment to ensure the reset takes effect
+      setTimeout(() => {
+        try {
+          // Use the direct broadcast method to ensure it gets sent
+          console.log("[DataService] Broadcasting event-updated event");
+          realtimeSync.broadcast('event-updated', updatedEvent);
+          
+          // Also try to broadcast via the service worker if available
+          if (typeof window !== 'undefined' && 
+              'serviceWorker' in navigator && 
+              navigator.serviceWorker.controller &&
+              window.broadcastViaServiceWorker) {
+            console.log("[DataService] Broadcasting via ServiceWorker");
+            window.broadcastViaServiceWorker({
+              type: 'event-updated',
+              data: updatedEvent
+            });
+          }
+          
+          // Dispatch a custom event on the window for local components
+          if (typeof window !== 'undefined') {
+            console.log("[DataService] Dispatching custom event");
+            const customEvent = new CustomEvent('event-updated', { 
+              detail: updatedEvent 
+            });
+            window.dispatchEvent(customEvent);
+            
+            // Also dispatch a direct notification event as a fallback
+            const notificationEvent = new CustomEvent('custom-notification', {
+              detail: {
+                type: 'notification',
+                title: 'Event Updated',
+                message: `"${updatedEvent.title}" has been updated.`,
+                link: `/events/${updatedEvent.id}`
+              }
+            });
+            window.dispatchEvent(notificationEvent);
+          }
+        } catch (innerError) {
+          console.error("[DataService] Error in broadcasting event update:", innerError);
+          // Event update still succeeded even if notifications failed
+        }
+      }, 100);
+    } catch (notificationError) {
+      console.error("[DataService] Error in notification part of update:", notificationError);
+      // Event still updated successfully, just notification failed
+    }
+    
+    return updatedEvent;
+  } catch (error) {
+    console.error('Error updating event:', error);
+    throw error;
   }
-  
-  const response = await fetch(`/api/events/${id}`, {
-    method: 'PUT',
-    body: formData,
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to update event');
-  }
-  
-  const updatedEvent = await response.json();
-  
-  // Broadcast the event update to other tabs
-  realtimeSync.broadcast('event-updated', updatedEvent);
-  
-  return updatedEvent;
 }
 
 export const updateEvent = async (id: string, eventData: Partial<Event>, imageFile?: File): Promise<Event> => {
@@ -467,43 +543,61 @@ export const validateCredentials = async (email: string, password: string): Prom
 
 // Online version of registerForEvent
 async function registerForEventOnline(userId: string, eventId: string): Promise<EventRegistrationResponse> {
-  const response = await fetch('/api/events/register', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ userId, eventId }),
-  });
-  
-  // Handle errors but don't throw exceptions
-  if (!response.ok) {
-    const errorData = await response.json();
+  try {
+    console.log(`[DataService] Registering user ${userId} for event ${eventId}`);
+    
+    const response = await fetch('/api/events/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId, eventId }),
+    });
+    
+    // Handle errors but don't throw exceptions
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('[DataService] Registration failed:', errorData);
+      return { 
+        success: false, 
+        message: 'Registration failed',
+        error: errorData.error || 'Failed to register for event'
+      };
+    }
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      console.log('[DataService] Registration successful:', result);
+      
+      // First, broadcast the user-registered event for notifications
+      console.log('[DataService] Broadcasting user-registered event');
+      realtimeSync.broadcast('user-registered', {
+        user: result.user,
+        event: result.event
+      });
+      
+      // Next, broadcast the silent event update to update counts across all tabs
+      console.log('[DataService] Broadcasting event-data-sync for updated registrations');
+      realtimeSync.broadcast('event-data-sync', {
+        id: eventId,
+        registrations: result.event.registrations
+      });
+      
+      // Finally, broadcast the user update
+      console.log('[DataService] Broadcasting user-updated for registered user');
+      realtimeSync.broadcast('user-updated', result.user);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('[DataService] Error in registerForEvent:', error);
     return { 
       success: false, 
-      message: 'Registration failed',
-      error: errorData.error || 'Failed to register for event'
+      message: 'Registration failed due to an error',
+      error: error instanceof Error ? error.message : 'Unknown error' 
     };
   }
-  
-  const data = await response.json();
-  
-  // Only broadcast user updated and registration (skip the event-updated broadcast)
-  // This prevents the "Event Updated" notification from appearing during registration
-  realtimeSync.broadcast('user-updated', data.user);
-  // Use a special event type for silent event updates during registration
-  realtimeSync.broadcast('event-data-sync', data.event);
-  realtimeSync.broadcast('user-registered', { 
-    userId: userId, 
-    eventId: eventId, 
-    eventTitle: data.event.title 
-  });
-  
-  return {
-    success: true,
-    message: data.message || 'Successfully registered for event',
-    user: data.user,
-    event: data.event
-  };
 }
 
 export const registerForEvent = async (userId: string, eventId: string): Promise<EventRegistrationResponse> => {
@@ -525,43 +619,61 @@ export const registerForEvent = async (userId: string, eventId: string): Promise
 
 // Online version of unregisterFromEvent
 async function unregisterFromEventOnline(userId: string, eventId: string): Promise<EventRegistrationResponse> {
-  const response = await fetch('/api/events/unregister', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ userId, eventId }),
-  });
-  
-  // Handle errors but don't throw exceptions
-  if (!response.ok) {
-    const errorData = await response.json();
+  try {
+    console.log(`[DataService] Unregistering user ${userId} from event ${eventId}`);
+    
+    const response = await fetch('/api/events/unregister', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId, eventId }),
+    });
+    
+    // Handle errors but don't throw exceptions
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('[DataService] Unregistration failed:', errorData);
+      return { 
+        success: false, 
+        message: 'Unregistration failed',
+        error: errorData.error || 'Failed to unregister from event'
+      };
+    }
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      console.log('[DataService] Unregistration successful:', result);
+      
+      // First, broadcast the user-unregistered event for notifications
+      console.log('[DataService] Broadcasting user-unregistered event');
+      realtimeSync.broadcast('user-unregistered', {
+        user: result.user,
+        event: result.event
+      });
+      
+      // Next, broadcast the silent event update to update counts across all tabs
+      console.log('[DataService] Broadcasting event-data-sync for updated registrations');
+      realtimeSync.broadcast('event-data-sync', {
+        id: eventId,
+        registrations: result.event.registrations
+      });
+      
+      // Finally, broadcast the user update
+      console.log('[DataService] Broadcasting user-updated for unregistered user');
+      realtimeSync.broadcast('user-updated', result.user);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('[DataService] Error in unregisterFromEvent:', error);
     return { 
       success: false, 
-      message: 'Unregistration failed',
-      error: errorData.error || 'Failed to unregister from event'
+      message: 'Unregistration failed due to an error',
+      error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
-  
-  const data = await response.json();
-  
-  // Only broadcast user updated and unregistration (skip the event-updated broadcast)
-  // This prevents the "Event Updated" notification from appearing during unregistration
-  realtimeSync.broadcast('user-updated', data.user);
-  // Use a special event type for silent event updates during unregistration
-  realtimeSync.broadcast('event-data-sync', data.event);
-  realtimeSync.broadcast('user-unregistered', { 
-    userId: userId, 
-    eventId: eventId, 
-    eventTitle: data.event.title 
-  });
-  
-  return {
-    success: true,
-    message: data.message || 'Successfully unregistered from event',
-    user: data.user,
-    event: data.event
-  };
 }
 
 export const unregisterFromEvent = async (userId: string, eventId: string): Promise<EventRegistrationResponse> => {

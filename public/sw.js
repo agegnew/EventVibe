@@ -1,47 +1,49 @@
 // Service Worker for Event Management App
-
 const CACHE_NAME = 'eventvibe-cache-v1';
 const DATA_CACHE_NAME = 'eventvibe-data-cache-v1';
-
-// Assets to cache immediately
 const STATIC_ASSETS = [
   '/',
-  '/events',
-  '/dashboard',
+  '/index.html',
   '/placeholder.svg',
-  '/default.png',
   '/placeholder.jpg',
-  '/placeholder-logo.svg',
-  '/fonts/inter.woff2',
-  '/manifest.json'
+  '/placeholder-logo.svg'
 ];
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
-  console.log('[ServiceWorker] Install');
+  console.log('[ServiceWorker] Installing Service Worker...');
+  
+  // Skip waiting to ensure the service worker activates immediately
+  self.skipWaiting();
+  
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('[ServiceWorker] Caching static assets');
         return cache.addAll(STATIC_ASSETS);
       })
-      .then(() => self.skipWaiting())
   );
 });
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('[ServiceWorker] Activate');
+  console.log('[ServiceWorker] Activating Service Worker...');
+  
+  // Claim client to ensure the service worker controls the page immediately
+  event.waitUntil(clients.claim());
+  
+  // Clean up old caches
   event.waitUntil(
     caches.keys().then((keyList) => {
       return Promise.all(keyList.map((key) => {
         if (key !== CACHE_NAME && key !== DATA_CACHE_NAME) {
-          console.log('[ServiceWorker] Removing old cache', key);
+          console.log('[ServiceWorker] Removing old cache:', key);
           return caches.delete(key);
         }
       }));
     })
   );
+  
   return self.clients.claim();
 });
 
@@ -52,14 +54,15 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(handleApiRequest(event));
     return;
   }
-
+  
   // For all other requests, use cache-first strategy
   event.respondWith(
     caches.match(event.request).then((response) => {
       return response || fetchAndCache(event.request);
     }).catch((error) => {
       // Return fallback for HTML pages
-      if (event.request.headers.get('accept').includes('text/html')) {
+      if (event.request.headers.get('accept') && 
+          event.request.headers.get('accept').includes('text/html')) {
         return caches.match('/');
       }
       return new Response('Network error happened', {
@@ -116,9 +119,83 @@ async function handleApiRequest(event) {
   }
 }
 
-// Listen for messages from clients
+// Listen for push notifications
+self.addEventListener('push', (event) => {
+  console.log('[ServiceWorker] Push Notification received', event);
+  
+  let data = { title: 'New Event!', content: 'Something happened in the app.', openUrl: '/' };
+  
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      const text = event.data.text();
+      data.content = text;
+    }
+  }
+  
+  const options = {
+    body: data.content,
+    icon: '/placeholder-logo.png',
+    badge: '/placeholder-logo.png',
+    vibrate: [100, 50, 100],
+    data: {
+      openUrl: data.openUrl || '/'
+    }
+  };
+  
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+// Handle notification click
+self.addEventListener('notificationclick', (event) => {
+  console.log('[ServiceWorker] Notification clicked', event);
+  
+  event.notification.close();
+  
+  const openUrl = event.notification.data.openUrl || '/';
+  
+  event.waitUntil(
+    clients.matchAll({ type: 'window' }).then((clientsArr) => {
+      // If a client tab is already open, focus it
+      const hadWindowToFocus = clientsArr.some((windowClient) => {
+        if (windowClient.url === openUrl) {
+          return windowClient.focus();
+        }
+      });
+      
+      // Otherwise open a new tab
+      if (!hadWindowToFocus) {
+        clients.openWindow(openUrl).then((windowClient) => {
+          if (windowClient) {
+            windowClient.focus();
+          }
+        });
+      }
+    })
+  );
+});
+
+// Handle messages from the client
 self.addEventListener('message', (event) => {
+  console.log('[ServiceWorker] Message received:', event.data);
+  
+  // Handle skip waiting message
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+  
+  // Broadcast messages to all clients (for realtime sync)
+  if (event.data && event.data.type === 'BROADCAST') {
+    self.clients.matchAll().then(clients => {
+      clients.forEach(client => {
+        // Don't send the message back to the sender
+        if (client.id !== event.source.id) {
+          client.postMessage(event.data.payload);
+        }
+      });
+    });
   }
 }); 

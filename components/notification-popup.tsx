@@ -1,169 +1,184 @@
 "use client"
 
-import { useState, useRef, useEffect } from 'react'
-import { X, Info, AlertCircle, Check, Bell, Calendar } from 'lucide-react'
-import { useNotifications, Notification } from '@/hooks/use-notifications'
+import React, { useEffect, useState, useRef } from 'react'
+import { useNotifications } from '@/hooks/use-notifications'
+import { Check, AlertTriangle, X, Info, Calendar, Bell } from 'lucide-react'
+import Link from 'next/link'
 
 export function NotificationPopup() {
-  const [showNotification, setShowNotification] = useState(false)
-  const [currentNotification, setCurrentNotification] = useState<Notification | null>(null)
-  const [progress, setProgress] = useState(100)
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  
   const { notifications, markAsRead } = useNotifications()
-  
-  // Display time in milliseconds
-  const displayTime = 5000
-  const updateInterval = 50
-  
-  // Get styling based on notification type
-  const getNotificationStyles = (type: string) => {
-    switch(type) {
-      case 'success':
-        return {
-          bg: 'bg-green-50 dark:bg-green-900/20',
-          border: 'border-green-200 dark:border-green-800',
-          text: 'text-green-800 dark:text-green-200',
-          progress: 'bg-green-500',
-          icon: <Check size={18} className="text-green-500 dark:text-green-400" />
-        };
-      case 'warning':
-        return {
-          bg: 'bg-amber-50 dark:bg-amber-900/20',
-          border: 'border-amber-200 dark:border-amber-800',
-          text: 'text-amber-800 dark:text-amber-200',
-          progress: 'bg-amber-500',
-          icon: <AlertCircle size={18} className="text-amber-500 dark:text-amber-400" />
-        };
-      case 'error':
-        return {
-          bg: 'bg-red-50 dark:bg-red-900/20',
-          border: 'border-red-200 dark:border-red-800',
-          text: 'text-red-800 dark:text-red-200',
-          progress: 'bg-red-500',
-          icon: <AlertCircle size={18} className="text-red-500 dark:text-red-400" />
-        };
-      case 'event':
-        return {
-          bg: 'bg-purple-50 dark:bg-purple-900/20',
-          border: 'border-purple-200 dark:border-purple-800',
-          text: 'text-purple-800 dark:text-purple-200',
-          progress: 'bg-purple-500',
-          icon: <Calendar size={18} className="text-purple-500 dark:text-purple-400" />
-        };
-      case 'info':
-      default:
-        return {
-          bg: 'bg-blue-50 dark:bg-blue-900/20',
-          border: 'border-blue-200 dark:border-blue-800',
-          text: 'text-blue-800 dark:text-blue-200',
-          progress: 'bg-blue-500',
-          icon: <Info size={18} className="text-blue-500 dark:text-blue-400" />
-        };
-    }
-  };
-  
-  // Show notification when a new unread one arrives
+  const [visibleNotifications, setVisibleNotifications] = useState<any[]>([])
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const notificationCache = useRef(new Set<string>())
+
+  // Show unread notifications immediately when they arrive
   useEffect(() => {
-    const unreadNotifications = notifications.filter(n => !n.read)
+    // Find all unread notifications sorted by timestamp (newest first)
+    const unreadNotifications = [...notifications]
+      .filter(n => !n.read)
+      .sort((a, b) => b.timestamp - a.timestamp);
     
-    if (unreadNotifications.length > 0 && !showNotification) {
-      const latestNotification = unreadNotifications[0]
-      setCurrentNotification(latestNotification)
-      setShowNotification(true)
-      setProgress(100)
+    // If we have unread notifications and they're not already being shown
+    if (unreadNotifications.length > 0) {
+      const latestUnread = unreadNotifications[0];
       
-      // Start progress bar
-      let timeLeft = displayTime
-      progressIntervalRef.current = setInterval(() => {
-        timeLeft -= updateInterval
-        const newProgress = (timeLeft / displayTime) * 100
-        setProgress(Math.max(0, newProgress))
+      // Only show if this is not already visible
+      if (!visibleNotifications.some(n => n.id === latestUnread.id) && 
+          !notificationCache.current.has(latestUnread.id)) {
         
-        if (timeLeft <= 0) {
-          if (progressIntervalRef.current) {
-            clearInterval(progressIntervalRef.current)
-            progressIntervalRef.current = null
-          }
-        }
-      }, updateInterval)
-      
-      // Auto-dismiss after displayTime
-      timeoutRef.current = setTimeout(() => {
-        setShowNotification(false)
-        if (latestNotification) {
-          markAsRead(latestNotification.id)
-        }
-      }, displayTime)
-      
-      return () => {
+        console.log("[NotificationPopup] Showing new notification:", latestUnread);
+        notificationCache.current.add(latestUnread.id);
+        
+        // Clear any existing timeout
         if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current)
-          timeoutRef.current = null
+          clearTimeout(timeoutRef.current);
         }
-        if (progressIntervalRef.current) {
-          clearInterval(progressIntervalRef.current)
-          progressIntervalRef.current = null
-        }
+        
+        // Set the notification to be visible
+        setVisibleNotifications([latestUnread]);
+        
+        // Set timeout to hide after 5 seconds
+        timeoutRef.current = setTimeout(() => {
+          console.log("[NotificationPopup] Auto-hiding notification:", latestUnread.id);
+          markAsRead(latestUnread.id);
+          setVisibleNotifications([]);
+        }, 5000);
       }
     }
-  }, [notifications, showNotification, markAsRead, displayTime])
-
-  // Handle close button click
-  const handleClose = () => {
-    setShowNotification(false)
-    if (currentNotification) {
-      markAsRead(currentNotification.id)
-    }
     
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-      timeoutRef.current = null
+    // Clean up timeout on unmount
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     }
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current)
-      progressIntervalRef.current = null
-    }
-  }
+  }, [notifications, markAsRead, visibleNotifications]);
 
-  if (!showNotification || !currentNotification) return null
-  
-  const styles = getNotificationStyles(currentNotification.type);
+  // Handle global event notifications (fallback for realtime sync)
+  useEffect(() => {
+    const handleCustomEvent = (e: any) => {
+      if (e.detail && e.detail.type === 'notification') {
+        console.log("[NotificationPopup] Received custom notification event:", e.detail);
+        
+        // If it has all required fields, show it directly
+        if (e.detail.title && e.detail.message) {
+          const notificationId = `direct-${Date.now()}`;
+          
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+          }
+          
+          setVisibleNotifications([{
+            id: notificationId,
+            title: e.detail.title,
+            message: e.detail.message,
+            type: e.detail.type || 'info',
+            link: e.detail.link,
+            timestamp: Date.now()
+          }]);
+          
+          timeoutRef.current = setTimeout(() => {
+            setVisibleNotifications([]);
+          }, 5000);
+        }
+      }
+    };
+    
+    window.addEventListener('custom-notification', handleCustomEvent);
+    return () => {
+      window.removeEventListener('custom-notification', handleCustomEvent);
+    };
+  }, []);
+
+  // Handle dismiss
+  const dismissNotification = (id: string) => {
+    console.log("[NotificationPopup] Manually dismissing notification:", id);
+    markAsRead(id);
+    setVisibleNotifications(prev => prev.filter(n => n.id !== id));
+    
+    // Clear timeout since we manually dismissed
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
+  // Different icons based on notification type
+  const getIcon = (type: string) => {
+    switch (type) {
+      case 'success':
+        return <Check className="h-5 w-5 text-green-500" />
+      case 'warning':
+        return <AlertTriangle className="h-5 w-5 text-yellow-500" />
+      case 'error':
+        return <AlertTriangle className="h-5 w-5 text-red-500" />
+      case 'event':
+        return <Calendar className="h-5 w-5 text-purple-500" />
+      default:
+        return <Info className="h-5 w-5 text-blue-500" />
+    }
+  };
+
+  // Different background colors based on notification type
+  const getBackgroundColor = (type: string) => {
+    switch (type) {
+      case 'success':
+        return 'border-l-4 border-green-500 bg-green-50 dark:bg-green-950/30'
+      case 'warning':
+        return 'border-l-4 border-yellow-500 bg-yellow-50 dark:bg-yellow-950/30'
+      case 'error':
+        return 'border-l-4 border-red-500 bg-red-50 dark:bg-red-950/30'
+      case 'event':
+        return 'border-l-4 border-purple-500 bg-purple-50 dark:bg-purple-950/30'
+      default:
+        return 'border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-950/30'
+    }
+  };
+
+  if (visibleNotifications.length === 0) return null;
   
   return (
-    <div 
-      style={{
-        position: 'fixed',
-        top: '96px',
-        right: '16px',
-        zIndex: 10000,
-        maxWidth: '320px',
-        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
-      }}
-      className={`${styles.bg} rounded-md p-4 border ${styles.border} animate-fade-in`}
-    >
-      <div className="flex justify-between items-start">
-        <div className="flex items-center gap-2">
-          {styles.icon}
-          <h3 className={`font-medium ${styles.text}`}>{currentNotification.title}</h3>
-        </div>
-        <button 
-          onClick={handleClose}
-          className="bg-gray-200 dark:bg-gray-700 rounded-full h-6 w-6 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
+    <div className="fixed top-20 right-4 z-[9999] flex flex-col gap-2 max-w-sm">
+      {visibleNotifications.map((notification) => (
+        <div
+          key={notification.id}
+          className={`w-full shadow-lg rounded-lg p-4 ${getBackgroundColor(notification.type)}`}
         >
-          <X size={16} />
-        </button>
-      </div>
-      <p className="mt-1 ml-6 text-sm text-gray-600 dark:text-gray-300">{currentNotification.message}</p>
-      
-      {/* Progress bar */}
-      <div className="mt-3 h-1 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-        <div 
-          className={`h-full ${styles.progress} rounded-full transition-all duration-100 ease-linear`}
-          style={{ width: `${progress}%` }}
-        />
-      </div>
+          <div className="flex">
+            <div className="flex-shrink-0">
+              {getIcon(notification.type)}
+            </div>
+            
+            <div className="ml-3 flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {notification.title}
+                </p>
+                <button
+                  className="ml-3 flex-shrink-0 text-gray-400 hover:text-gray-600 focus:outline-none"
+                  onClick={() => dismissNotification(notification.id)}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+                {notification.message}
+              </p>
+              {notification.link && (
+                <div className="mt-2">
+                  <Link
+                    href={notification.link}
+                    onClick={() => dismissNotification(notification.id)}
+                    className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    View details
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   )
 } 

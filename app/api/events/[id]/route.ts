@@ -32,6 +32,8 @@ export async function PUT(
     const eventDataJson = formData.get('data') as string;
     const eventData = JSON.parse(eventDataJson);
     
+    console.log(`[API] Updating event ${id} with data:`, eventData);
+    
     // Get the image file if it exists
     const imageFile = formData.get('image') as File | null;
     
@@ -52,6 +54,14 @@ export async function PUT(
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
     
+    console.log(`[API] Event ${id} updated successfully:`, {
+      id: updatedEvent.id,
+      title: updatedEvent.title,
+      status: updatedEvent.status,
+      registrations: updatedEvent.registrations
+    });
+    
+    // Make sure we return the complete event object
     return NextResponse.json(updatedEvent);
   } catch (error) {
     console.error('Error updating event:', error);

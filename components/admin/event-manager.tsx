@@ -192,19 +192,23 @@ export function EventManager() {
     if (!currentEvent) return
     
     try {
+      console.log("[EventManager] Saving event:", currentEvent.id ? "Update" : "Create", currentEvent);
+      
       if (currentEvent.id) {
         // Update existing event
-        await updateEvent(currentEvent.id, currentEvent, imageFile || undefined)
+        const updatedEvent = await updateEvent(currentEvent.id, currentEvent, imageFile || undefined);
+        console.log("[EventManager] Event updated successfully:", updatedEvent);
       } else {
         // Create new event
-        await createEvent(currentEvent as any, imageFile || undefined)
+        const newEvent = await createEvent(currentEvent as any, imageFile || undefined);
+        console.log("[EventManager] Event created successfully:", newEvent);
       }
       
       // Refresh events list
-      await fetchEvents()
-      closeModal()
+      await fetchEvents();
+      closeModal();
     } catch (error) {
-      console.error("Error saving event:", error)
+      console.error("Error saving event:", error);
     }
   }
 

@@ -102,31 +102,61 @@ export const serverUpdateEvent = async (
   imageBuffer?: Buffer,
   fileName?: string
 ): Promise<Event | null> => {
-  const events = await serverGetAllEvents();
-  const eventIndex = events.findIndex(event => event.id === id);
-  
-  if (eventIndex === -1) {
-    return null;
+  try {
+    const events = await serverGetAllEvents();
+    const eventIndex = events.findIndex(event => event.id === id);
+    
+    if (eventIndex === -1) {
+      console.log(`[ServerDataService] Event not found with id: ${id}`);
+      return null;
+    }
+    
+    // Handle image upload if provided
+    if (imageBuffer && fileName) {
+      const newFileName = `${id}${path.extname(fileName)}`;
+      const imagePath = await saveImage(imageBuffer, newFileName, EVENTS_IMAGE_DIR);
+      eventData.image = imagePath;
+    }
+    
+    // Ensure current event has all necessary fields
+    const currentEvent = events[eventIndex];
+    
+    // Update the event with all fields preserved
+    const updatedEvent: Event = {
+      ...currentEvent,
+      ...eventData,
+      id: currentEvent.id, // Ensure ID is preserved
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Make sure required fields are present
+    if (!updatedEvent.title) {
+      console.error(`[ServerDataService] Updated event missing title: ${id}`);
+      updatedEvent.title = currentEvent.title || 'Unnamed Event';
+    }
+    
+    if (!updatedEvent.registrations && updatedEvent.registrations !== 0) {
+      updatedEvent.registrations = currentEvent.registrations || 0;
+    }
+    
+    if (!updatedEvent.revenue && updatedEvent.revenue !== 0) {
+      updatedEvent.revenue = currentEvent.revenue || 0;
+    }
+    
+    events[eventIndex] = updatedEvent;
+    await writeJSONFile(EVENTS_FILE_PATH, events);
+    
+    console.log(`[ServerDataService] Event updated successfully:`, {
+      id: updatedEvent.id,
+      title: updatedEvent.title,
+      status: updatedEvent.status
+    });
+    
+    return updatedEvent;
+  } catch (error) {
+    console.error(`[ServerDataService] Error updating event:`, error);
+    throw error;
   }
-  
-  // Handle image upload if provided
-  if (imageBuffer && fileName) {
-    const newFileName = `${id}${path.extname(fileName)}`;
-    const imagePath = await saveImage(imageBuffer, newFileName, EVENTS_IMAGE_DIR);
-    eventData.image = imagePath;
-  }
-  
-  // Update the event
-  const updatedEvent = {
-    ...events[eventIndex],
-    ...eventData,
-    updatedAt: new Date().toISOString()
-  };
-  
-  events[eventIndex] = updatedEvent;
-  await writeJSONFile(EVENTS_FILE_PATH, events);
-  
-  return updatedEvent;
 };
 
 export const serverDeleteEvent = async (id: string): Promise<boolean> => {

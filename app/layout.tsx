@@ -8,6 +8,7 @@ import { Footer } from "@/components/footer"
 import { AuthProvider } from "@/hooks/use-auth"
 import { NotificationsProvider } from "@/hooks/use-notifications"
 import { NotificationPopup } from "@/components/notification-popup"
+import { ServiceWorkerRegister } from '@/components/service-worker-register'
 
 // Optimize font loading
 const poppins = Poppins({
@@ -40,6 +41,9 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#ffffff" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
       </head>
       <body className={`${poppins.variable} font-sans antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
@@ -52,6 +56,7 @@ export default function RootLayout({
                   {children}
                 </main>
                 <Footer />
+                <ServiceWorkerRegister />
               </div>
             </NotificationsProvider>
           </AuthProvider>

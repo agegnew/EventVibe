@@ -33,6 +33,12 @@ const NOTIFICATIONS_STORAGE_KEY = 'eventvibe_notifications';
 // Helper function to save notifications to server
 const saveNotificationsToServer = async (notifications: Notification[]): Promise<void> => {
   try {
+    // First check if the notifications endpoint exists and is enabled
+    if (typeof window !== 'undefined' && window.DISABLE_NOTIFICATION_SERVER_SAVE) {
+      // Skip server save if explicitly disabled
+      return;
+    }
+    
     const response = await fetch('/api/notifications', {
       method: 'POST',
       headers: {
@@ -42,12 +48,26 @@ const saveNotificationsToServer = async (notifications: Notification[]): Promise
     });
     
     if (!response.ok) {
-      throw new Error('Failed to save notifications');
+      // Don't throw error, just log it - this makes server storage optional
+      console.warn('Unable to save notifications to server, falling back to local storage only');
+      if (typeof window !== 'undefined') {
+        window.DISABLE_NOTIFICATION_SERVER_SAVE = true; // Disable future attempts in this session
+      }
     }
   } catch (error) {
-    console.error('Error saving notifications to server:', error);
+    console.warn('Error saving notifications to server, using local storage only:', error);
+    if (typeof window !== 'undefined') {
+      window.DISABLE_NOTIFICATION_SERVER_SAVE = true; // Disable future attempts in this session
+    }
   }
 };
+
+// Add TypeScript declaration to window object
+declare global {
+  interface Window {
+    DISABLE_NOTIFICATION_SERVER_SAVE?: boolean;
+  }
+}
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -98,10 +118,14 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   
   // Save notifications to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
-    
-    // Also save to server if available
-    saveNotificationsToServer(notifications);
+    try {
+      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
+      
+      // Also save to server if available
+      saveNotificationsToServer(notifications);
+    } catch (e) {
+      console.warn('Failed to save notifications to localStorage:', e);
+    }
   }, [notifications]);
   
   // Listen for real-time event changes via BroadcastChannel
@@ -130,9 +154,20 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     
     // Handler for event updates
     const handleEventUpdated = (data: any) => {
+      console.log('[useNotifications] Received event-updated with data:', data);
+      
+      if (!data || !data.id) {
+        console.error('[useNotifications] Invalid event update data received:', data);
+        return;
+      }
+      
+      // Ensure we have a title even if data is incomplete
+      const title = data.title || 'Event';
+      
+      // Create notification for the event update
       addNotification({
         title: 'Event Updated',
-        message: `"${data.title}" has been updated.`,
+        message: `"${title}" has been updated.`,
         type: 'info',
         link: `/events/${data.id}`
       });
@@ -140,36 +175,86 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     
     // Handler for user event registration
     const handleUserRegistered = (data: any) => {
+      console.log('[useNotifications] Received user-registered with data:', data);
+      
+      // Check if we have proper event data
+      if (!data) {
+        console.error('[useNotifications] Invalid registration data:', data);
+        return;
+      }
+      
+      // Extract event title from either direct property or nested object
+      let eventTitle = '';
+      let eventId = '';
+      
+      if (data.event && data.event.title) {
+        // Handle new format with event object
+        eventTitle = data.event.title;
+        eventId = data.event.id;
+      } else if (data.eventTitle) {
+        // Handle old format with direct properties
+        eventTitle = data.eventTitle;
+        eventId = data.eventId;
+      } else {
+        console.error('[useNotifications] Missing event title in registration data:', data);
+        return;
+      }
+      
       addNotification({
         title: 'Registration Successful',
-        message: `You've successfully registered for "${data.eventTitle}".`,
+        message: `You've successfully registered for "${eventTitle}".`,
         type: 'success',
-        link: `/events/${data.eventId}`
+        link: `/events/${eventId}`
       });
     };
     
     // Handler for user event unregistration
     const handleUserUnregistered = (data: any) => {
+      console.log('[useNotifications] Received user-unregistered with data:', data);
+      
+      // Check if we have proper event data
+      if (!data) {
+        console.error('[useNotifications] Invalid unregistration data:', data);
+        return;
+      }
+      
+      // Extract event title from either direct property or nested object
+      let eventTitle = '';
+      let eventId = '';
+      
+      if (data.event && data.event.title) {
+        // Handle new format with event object
+        eventTitle = data.event.title;
+        eventId = data.event.id;
+      } else if (data.eventTitle) {
+        // Handle old format with direct properties
+        eventTitle = data.eventTitle;
+        eventId = data.eventId;
+      } else {
+        console.error('[useNotifications] Missing event title in unregistration data:', data);
+        return;
+      }
+      
       addNotification({
         title: 'Unregistration Successful',
-        message: `You've successfully unregistered from "${data.eventTitle}".`,
+        message: `You've successfully unregistered from "${eventTitle}".`,
         type: 'info',
-        link: `/events/${data.eventId}`
+        link: `/events/${eventId}`
       });
     };
     
-    // Subscribe to real-time events
-    realtimeSync.subscribe('event-created', handleEventCreated);
-    realtimeSync.subscribe('event-updated', handleEventUpdated);
-    realtimeSync.subscribe('user-registered', handleUserRegistered);
-    realtimeSync.subscribe('user-unregistered', handleUserUnregistered);
+    // Subscribe to real-time events - enhanced with direct registration to ensure connection
+    const unsubEventCreated = realtimeSync.subscribe('event-created', handleEventCreated);
+    const unsubEventUpdated = realtimeSync.subscribe('event-updated', handleEventUpdated);
+    const unsubUserRegistered = realtimeSync.subscribe('user-registered', handleUserRegistered);
+    const unsubUserUnregistered = realtimeSync.subscribe('user-unregistered', handleUserUnregistered);
     
     // Clean up subscriptions
     return () => {
-      realtimeSync.unsubscribe('event-created', handleEventCreated);
-      realtimeSync.unsubscribe('event-updated', handleEventUpdated);
-      realtimeSync.unsubscribe('user-registered', handleUserRegistered);
-      realtimeSync.unsubscribe('user-unregistered', handleUserUnregistered);
+      unsubEventCreated();
+      unsubEventUpdated();
+      unsubUserRegistered();
+      unsubUserUnregistered();
     };
   }, []);
   

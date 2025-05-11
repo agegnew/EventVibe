@@ -1,56 +1,93 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
-export default function ServiceWorkerRegister() {
-  const [isOnline, setIsOnline] = useState(true)
-  const [isRegistered, setIsRegistered] = useState(false)
-  const [registrationError, setRegistrationError] = useState<string | null>(null)
+// Extend Window interface to include our custom method
+declare global {
+  interface Window {
+    broadcastViaServiceWorker?: (message: any) => void;
+  }
+}
 
+export function ServiceWorkerRegister() {
   useEffect(() => {
-    // Set initial online status
-    setIsOnline(navigator.onLine)
-
-    // Update online status when it changes
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
-    
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-
-    // Register service worker if supported
     if ('serviceWorker' in navigator) {
+      // Register service worker
       navigator.serviceWorker.register('/sw.js')
-        .then((registration) => {
-          console.log('Service Worker registered with scope:', registration.scope)
-          setIsRegistered(true)
+        .then(registration => {
+          console.log('ServiceWorker registration successful with scope:', registration.scope)
+          
+          // Watch for updates
+          registration.onupdatefound = () => {
+            const installingWorker = registration.installing
+            if (installingWorker) {
+              installingWorker.onstatechange = () => {
+                if (installingWorker.state === 'installed') {
+                  if (navigator.serviceWorker.controller) {
+                    console.log('New content is available; please refresh.')
+                  } else {
+                    console.log('Content is cached for offline use.')
+                  }
+                }
+              }
+            }
+          }
+          
+          // Add message listener for realtime sync
+          navigator.serviceWorker.addEventListener('message', (event) => {
+            console.log('[ServiceWorkerRegister] Message from SW:', event.data)
+            
+            // If the message is a sync payload, we could dispatch it to relevant components
+            if (event.data && event.data.type) {
+              // Create a custom event to notify components
+              const customEvent = new CustomEvent('realtime-sync', { 
+                detail: event.data 
+              })
+              window.dispatchEvent(customEvent)
+            }
+          })
         })
-        .catch((error) => {
-          console.error('Service Worker registration failed:', error)
-          setRegistrationError(error.message)
+        .catch(error => {
+          console.error('ServiceWorker registration failed:', error)
         })
+      
+      // Force update on new worker
+      let refreshing = false
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true
+          window.location.reload()
+        }
+      })
     }
-
+    
+    // Set up realtime communication between tabs via service worker
+    const setupRealtimeRelayViaSW = () => {
+      if (navigator.serviceWorker.controller) {
+        // This function can be used to broadcast messages to other tabs via SW
+        window.broadcastViaServiceWorker = (message: any) => {
+          navigator.serviceWorker.controller?.postMessage({
+            type: 'BROADCAST',
+            payload: message
+          })
+        }
+      }
+    }
+    
+    // Set up when the service worker is ready
+    if (navigator.serviceWorker.controller) {
+      setupRealtimeRelayViaSW()
+    } else {
+      navigator.serviceWorker.addEventListener('controllerchange', setupRealtimeRelayViaSW)
+    }
+    
     return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
+      // Clean up
+      if (navigator.serviceWorker) {
+        navigator.serviceWorker.removeEventListener('controllerchange', () => {})
+      }
     }
   }, [])
-
-  // Only render UI in development mode to show status
-  if (process.env.NODE_ENV !== 'development') {
-    return null
-  }
-
-  return (
-    <div className="fixed bottom-4 right-4 z-50">
-      <div className="flex items-center p-2 rounded-lg shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-        <div className={`w-3 h-3 rounded-full mr-2 ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
-        <span className="text-xs font-medium">
-          {isOnline ? 'Online' : 'Offline'}
-          {isRegistered && ' (PWA Ready)'}
-        </span>
-      </div>
-    </div>
-  )
+  
+  return null
 } 
