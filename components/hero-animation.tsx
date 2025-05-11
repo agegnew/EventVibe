@@ -31,11 +31,11 @@ function AdvancedModel() {
 
   return (
     <Float
-      speed={2}
-      rotationIntensity={0.5}
-      floatIntensity={0.5}
+      speed={1.5}
+      rotationIntensity={0.4}
+      floatIntensity={0.4}
     >
-      <group ref={groupRef} position={[0, 0, 0]} rotation={[0.1, 0.4, 0]}>
+      <group ref={groupRef} position={[0, 0, 0]} rotation={[0.1, 0.4, 0]} scale={1.2}>
         {/* Main glowing sphere with distortion */}
         <Sphere ref={meshRef} args={[1.2, 64, 64]} position={[0, 0, 0]}>
           <MeshDistortMaterial 
@@ -56,9 +56,9 @@ function AdvancedModel() {
           <meshStandardMaterial 
             color="#60a5fa" 
             emissive="#60a5fa"
-            emissiveIntensity={0.5}
+            emissiveIntensity={0.8}
             transparent
-            opacity={0.6}
+            opacity={0.8}
           />
         </mesh>
         
@@ -102,72 +102,134 @@ function OrbitingSphere({ radius, speed, color, size = 0.1, phase = 0 }: Orbitin
   )
 }
 
-// Fallback component if 3D rendering fails
-function FallbackAnimation() {
+// Mobile-friendly fallback animation (pure CSS/HTML)
+function MobileAnimation() {
   return (
     <div className="w-full h-full flex items-center justify-center bg-gradient-to-r from-blue-600 to-cyan-500 rounded-lg relative overflow-hidden">
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute top-10 left-10 w-40 h-40 rounded-full bg-white/10 blur-2xl"></div>
-        <div className="absolute bottom-10 right-10 w-60 h-60 rounded-full bg-white/10 blur-3xl"></div>
+      <div className="absolute inset-0 opacity-30">
+        <div className="absolute top-1/4 left-1/4 w-40 h-40 rounded-full bg-white/30 blur-2xl animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-60 h-60 rounded-full bg-white/20 blur-3xl animate-pulse" style={{animationDelay: '1s', animationDuration: '3s'}}></div>
+        
+        {/* Additional animated elements for visual interest */}
+        <div className="absolute top-1/2 left-1/3 w-20 h-20 rounded-full bg-blue-400/20 blur-xl animate-ping" style={{animationDuration: '3s'}}></div>
+        <div className="absolute bottom-1/3 right-1/3 w-12 h-12 rounded-full bg-cyan-300/30 blur-xl animate-ping" style={{animationDuration: '4s', animationDelay: '1s'}}></div>
       </div>
-      <div className="text-white text-center p-8 relative z-10">
-        <div className="text-2xl font-bold mb-2">EventVibe</div>
-        <div>Discover amazing events</div>
-      </div>
+      
+      {/* Animated circles */}
+      <motion.div 
+        className="absolute w-8 h-8 rounded-full bg-blue-500/70"
+        animate={{
+          x: [0, 80, 0, -80, 0],
+          y: [-80, 0, 80, 0, -80],
+        }}
+        transition={{
+          duration: 10,
+          ease: "linear",
+          repeat: Infinity,
+        }}
+      />
+      
+      <motion.div 
+        className="absolute w-5 h-5 rounded-full bg-cyan-400/70"
+        animate={{
+          x: [0, -60, 0, 60, 0],
+          y: [60, 0, -60, 0, 60],
+        }}
+        transition={{
+          duration: 8,
+          ease: "linear",
+          repeat: Infinity,
+        }}
+      />
+      
+      <motion.div 
+        className="text-white text-center p-8 relative z-10"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <motion.div 
+          className="text-3xl md:text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-100"
+          animate={{ y: [0, -10, 0] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+        >
+          EventVibe
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+          className="text-lg text-white/90"
+        >
+          Discover amazing events
+        </motion.div>
+      </motion.div>
     </div>
   )
 }
 
 export default function HeroAnimation() {
-  // Use a simpler approach - immediately render both the fallback and the real component
-  // The fallback will be shown first while the 3D component loads
-  const [fallbackVisible, setFallbackVisible] = useState(true);
-  const [canvasInitialized, setCanvasInitialized] = useState(false);
+  const [isMobile, setIsMobile] = useState(false)
+  const [isLoaded, setIsLoaded] = useState(false)
   
-  // After component mounts, begin a timer to hide the fallback
+  // Detect mobile devices responsively
   useEffect(() => {
-    // Force initialization immediately
-    setCanvasInitialized(true);
+    // Function to check if screen is mobile-sized
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768) // 768px is typical tablet breakpoint
+    }
     
-    // Give time for the 3D canvas to initialize before showing it
-    const timer = setTimeout(() => {
-      setFallbackVisible(false);
-    }, 800); // Give it a little more time to fully render
+    // Check initially
+    checkMobile()
+    setIsLoaded(true)
     
-    return () => clearTimeout(timer);
-  }, []);
-
+    // Add resize listener
+    window.addEventListener('resize', checkMobile)
+    
+    // Clean up
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+  
+  // If not loaded yet, return the mobile animation as initial display to prevent flicker
+  if (!isLoaded) {
+    return (
+      <div className="w-full h-full relative rounded-xl overflow-hidden">
+        <MobileAnimation />
+      </div>
+    )
+  }
+  
+  // If mobile, use the simpler animation
+  if (isMobile) {
+    return (
+      <div className="w-full h-full relative rounded-xl overflow-hidden">
+        <MobileAnimation />
+      </div>
+    )
+  }
+  
+  // For tablets and larger screens, use the 3D animation
   return (
     <div className="w-full h-full relative rounded-xl overflow-hidden">
-      {/* Always render the 3D component, but it might take time to initialize */}
-      <div className={`absolute inset-0 transition-opacity duration-1000 ${fallbackVisible ? 'opacity-0' : 'opacity-100'}`}>
-        {canvasInitialized && (
-          <ErrorBoundary fallback={<FallbackAnimation />}>
-            <Canvas
-              camera={{ position: [0, 0, 5], fov: 45 }}
-              dpr={[1, 2]}
-              gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
-              style={{ width: '100%', height: '100%' }}
-            >
-              <ambientLight intensity={0.4} />
-              <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={0.7} castShadow />
-              <pointLight position={[-10, -10, -10]} intensity={0.5} color="#60a5fa" />
-              <AdvancedModel />
-              <Environment preset="city" blur={0.8} />
-            </Canvas>
-          </ErrorBoundary>
-        )}
-      </div>
-      
-      {/* Always show the fallback initially, then fade it out */}
-      <div className={`absolute inset-0 z-10 transition-opacity duration-500 ${fallbackVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <FallbackAnimation />
-      </div>
+      <ErrorBoundary fallback={<MobileAnimation />}>
+        <Canvas
+          camera={{ position: [0, 0, 6], fov: 50 }}
+          dpr={[1, 1.5]}
+          gl={{ alpha: true, antialias: true, powerPreference: "default" }}
+          style={{ width: '100%', height: '100%' }}
+        >
+          <ambientLight intensity={0.6} />
+          <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={0.8} castShadow />
+          <pointLight position={[-10, -10, -10]} intensity={0.5} color="#60a5fa" />
+          <AdvancedModel />
+          <Environment preset="city" blur={0.8} />
+        </Canvas>
+      </ErrorBoundary>
     </div>
   )
 }
 
-// Updated error boundary component with fallback prop
+// Error boundary component for graceful fallback if 3D animation fails
 interface ErrorBoundaryProps {
   children: React.ReactNode;
   fallback: React.ReactNode;
