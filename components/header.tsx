@@ -41,8 +41,8 @@ export function Header() {
     { name: "Home", href: "/" },
     { name: "Events", href: "/events" },
     ...(isLoggedIn ? [{ name: "Dashboard", href: "/dashboard" }] : []),
-    { name: "About", href: "#" },
-    { name: "Contact", href: "#" },
+    { name: "About", href: "/about" },
+    { name: "Contact", href: "/contact" },
   ]
 
   const handleLogout = () => {
