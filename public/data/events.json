@@ -6,7 +6,7 @@
     "endDate": "2025-05-11",
     "location": "Ethiopia",
     "category": "Technology",
-    "price": 5,
+    "price": 5555,
     "seats": 20,
     "status": "Upcoming",
     "featured": true,
@@ -15,7 +15,7 @@
     "registrations": 3,
     "revenue": 299.98,
     "createdAt": "2025-05-10T15:17:59.852Z",
-    "updatedAt": "2025-05-11T22:07:59.154Z"
+    "updatedAt": "2025-05-11T22:20:52.998Z"
   },
   {
     "title": "Trip to USA",
@@ -31,9 +31,9 @@
     "id": "3261fd3c-a1bc-4cec-bdd8-24b5796f9d8d",
     "image": "/data/images/events/3261fd3c-a1bc-4cec-bdd8-24b5796f9d8d.png",
     "registrations": 2,
-    "revenue": 40,
+    "revenue": 5000,
     "createdAt": "2025-05-10T17:02:12.676Z",
-    "updatedAt": "2025-05-11T22:13:48.657Z"
+    "updatedAt": "2025-05-11T22:21:44.348Z"
   },
   {
     "title": "the otheres",

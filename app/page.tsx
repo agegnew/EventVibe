@@ -234,36 +234,28 @@ export default function Home() {
 
         <div className="container mx-auto px-4 relative z-10">
           <div className="text-center mb-16">
-            <motion.span 
-              className="inline-block text-sm font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-2 text-shimmer"
+            <motion.div
+              className="flex flex-col items-center"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
             >
-              Browse by Category
-            </motion.span>
-            <motion.h2 
-              className="text-3xl md:text-4xl font-bold mb-4"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-            >
-              Find Your Interest
-            </motion.h2>
-            <motion.p 
-              className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-            >
-              Explore events by category to discover experiences tailored to your interests
-            </motion.p>
+              <span className="relative inline-block px-4 py-1 mb-4 rounded-full bg-blue-100 dark:bg-blue-900/40 backdrop-blur-sm">
+                <span className="relative z-10 text-sm font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                  Browse by Category
+                </span>
+              </span>
+              <h2 className="text-3xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
+                Find Your Interest
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto text-lg">
+                Explore events by category to discover experiences tailored to your interests
+              </p>
+            </motion.div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5 md:gap-8">
             {categories.map((category, index) => (
               <motion.div
                 key={category}
@@ -271,18 +263,41 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: 0.05 * index }}
+                className="aspect-square"
               >
-                <Link href={`/events?category=${category.toLowerCase()}`}>
-                  <GlassmorphicCard className="p-6 h-full flex flex-col items-center justify-center text-center hover:scale-105 transition-transform duration-300" borderGlow={true}>
-                    <div className={`w-12 h-12 rounded-lg mb-4 flex items-center justify-center ${getCategoryGradient(category)}`}>
+                <Link 
+                  href={`/events?category=${category.toLowerCase()}`}
+                  className="h-full block group"
+                >
+                  <GlassmorphicCard 
+                    className="p-6 h-full flex flex-col items-center justify-center text-center group-hover:scale-105 transition-all duration-300 shadow-xl" 
+                    borderGlow={true}
+                  >
+                    <div className={`w-16 h-16 mb-5 flex items-center justify-center rounded-2xl ${getCategoryGradient(category)} transform group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
                       {getCategoryIcon(category)}
                     </div>
-                    <h3 className="font-bold">{category}</h3>
+                    <h3 className="font-bold text-lg md:text-xl">{category}</h3>
+                    <div className="w-10 h-1 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 mt-3 group-hover:w-16 transition-all duration-300"></div>
                   </GlassmorphicCard>
                 </Link>
               </motion.div>
             ))}
           </div>
+          
+          <motion.div 
+            className="mt-12 text-center"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <Button 
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 rounded-full px-8 py-6 text-lg font-medium transition-all duration-300 hover:shadow-lg"
+              asChild
+            >
+              <Link href="/events">View All Categories</Link>
+            </Button>
+          </motion.div>
         </div>
       </section>
 
@@ -321,23 +336,102 @@ export default function Home() {
 const getCategoryIcon = (category: string) => {
   switch (category.toLowerCase()) {
     case "technology":
-      return <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M4 2h16a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm5.88 13.47l3.76-2.08a2 2 0 0 0 1-1.72V6.79a2 2 0 0 0-1-1.72L9.88 3.53a2 2 0 0 0-1.94 0L4.18 5.5a2 2 0 0 0-1 1.72v4.67a2 2 0 0 0 1 1.72l3.76 2.08a2 2 0 0 0 1.94 0z" /></svg>
+      return (
+        <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="18" height="18" rx="5" fill="currentColor" fillOpacity="0.15"/>
+          <path d="M7 8C7 7.44772 7.44772 7 8 7H16C16.5523 7 17 7.44772 17 8V16C17 16.5523 16.5523 17 16 17H8C7.44772 17 7 16.5523 7 16V8Z" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M10 11L14 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M10 14L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M12 7V5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M12 19V17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M17 12H19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M5 12H7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      )
     case "business":
-      return <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M20 6H4V5c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v1zm0 2v12c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V8h16z" /></svg>
+      return (
+        <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="18" height="18" rx="5" fill="currentColor" fillOpacity="0.15"/>
+          <path d="M16 10.5V8C16 6.89543 15.1046 6 14 6H10C8.89543 6 8 6.89543 8 8V10.5" stroke="currentColor" strokeWidth="1.5"/>
+          <rect x="6" y="10.5" width="12" height="7.5" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M12 14V15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      )
     case "design":
-      return <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8.5 4A1.5 1.5 0 0 0 7 5.5A1.5 1.5 0 0 0 8.5 7A1.5 1.5 0 0 0 10 5.5A1.5 1.5 0 0 0 8.5 4M15.5 4A1.5 1.5 0 0 0 14 5.5A1.5 1.5 0 0 0 15.5 7A1.5 1.5 0 0 0 17 5.5A1.5 1.5 0 0 0 15.5 4M8.5 17A1.5 1.5 0 0 0 7 18.5A1.5 1.5 0 0 0 8.5 20A1.5 1.5 0 0 0 10 18.5A1.5 1.5 0 0 0 8.5 17M15.5 17A1.5 1.5 0 0 0 14 18.5A1.5 1.5 0 0 0 15.5 20A1.5 1.5 0 0 0 17 18.5A1.5 1.5 0 0 0 15.5 17M12 10.5A1.5 1.5 0 0 0 10.5 12A1.5 1.5 0 0 0 12 13.5A1.5 1.5 0 0 0 13.5 12A1.5 1.5 0 0 0 12 10.5Z" /></svg>
+      return (
+        <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="18" height="18" rx="5" fill="currentColor" fillOpacity="0.15"/>
+          <path d="M14.5 7.5L16.5 9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M8 16L14 10L13 9L7 15L8 16Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+          <path d="M8.5 16.5L7 16L6.5 14.5L12.5 8.5L15.5 11.5L9.5 17.5L8.5 16.5Z" fill="currentColor" fillOpacity="0.2"/>
+          <circle cx="16" cy="8" r="1" fill="currentColor"/>
+        </svg>
+      )
     case "marketing":
-      return <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12,8H4A2,2 0 0,0 2,10V14A2,2 0 0,0 4,16H5V20A1,1 0 0,0 6,21H8A1,1 0 0,0 9,20V16H12L17,20V4L12,8M21.5,12C21.5,13.71 20.54,15.26 19,16V8C20.53,8.75 21.5,10.3 21.5,12Z" /></svg>
+      return (
+        <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="18" height="18" rx="5" fill="currentColor" fillOpacity="0.15"/>
+          <path d="M16 9L16 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M12 11L12 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M8 13L8 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M8 7L16 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M19 10L16 7L13 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )
     case "music":
-      return <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M21,3V15.5A3.5,3.5 0 0,1 17.5,19A3.5,3.5 0 0,1 14,15.5A3.5,3.5 0 0,1 17.5,12C18.04,12 18.55,12.12 19,12.34V6.47L9,8.6V17.5A3.5,3.5 0 0,1 5.5,21A3.5,3.5 0 0,1 2,17.5A3.5,3.5 0 0,1 5.5,14C6.04,14 6.55,14.12 7,14.34V7L21,3Z" /></svg>
+      return (
+        <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="18" height="18" rx="5" fill="currentColor" fillOpacity="0.15"/>
+          <path d="M10 17.5C10 18.3284 9.32843 19 8.5 19C7.67157 19 7 18.3284 7 17.5C7 16.6716 7.67157 16 8.5 16C9.32843 16 10 16.6716 10 17.5Z" fill="currentColor"/>
+          <path d="M17 14.5C17 15.3284 16.3284 16 15.5 16C14.6716 16 14 15.3284 14 14.5C14 13.6716 14.6716 13 15.5 13C16.3284 13 17 13.6716 17 14.5Z" fill="currentColor"/>
+          <path d="M10 17.5V8.5M17 14.5V5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M10 8.5L17 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      )
     case "sports":
-      return <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A2,2 0 0,0 10,6A2,2 0 0,0 12,8A2,2 0 0,0 14,6A2,2 0 0,0 12,4M13.5,10H10.5C8.57,10 7,11.57 7,13.5V16H17V13.5C17,11.57 15.43,10 13.5,10Z" /></svg>
+      return (
+        <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="18" height="18" rx="5" fill="currentColor" fillOpacity="0.15"/>
+          <circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M12 5C13.6569 6.33333 14.5 8.66667 14.5 12C14.5 15.3333 13.6569 17.6667 12 19" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M12 5C10.3431 6.33333 9.5 8.66667 9.5 12C9.5 15.3333 10.3431 17.6667 12 19" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M5 12H19" stroke="currentColor" strokeWidth="1.5"/>
+        </svg>
+      )
     case "food":
-      return <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M15.5,21L14,8H16.23L15.1,3.46L16.84,3L18.09,8H22L20.5,21H15.5M5,11H10A3,3 0 0,1 13,14H2A3,3 0 0,1 5,11M13,18V21H2V18H13M3,15H8L9.5,16.5L11,15H12A1,1 0 0,1 13,16A1,1 0 0,1 12,17H3A1,1 0 0,1 2,16A1,1 0 0,1 3,15Z" /></svg>
+      return (
+        <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="18" height="18" rx="5" fill="currentColor" fillOpacity="0.15"/>
+          <path d="M6 11H18V13C18 14.1046 17.1046 15 16 15H8C6.89543 15 6 14.1046 6 13V11Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+          <path d="M8 7L8 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M12 7V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M16 7V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M7 18L17 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      )
     case "arts":
-      return <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12,6A3,3 0 0,0 9,9A3,3 0 0,0 12,12A3,3 0 0,0 15,9A3,3 0 0,0 12,6M12,8A1,1 0 0,1 13,9A1,1 0 0,1 12,10A1,1 0 0,1 11,9A1,1 0 0,1 12,8M5.5,8C4.67,8 4,8.67 4,9.5C4,10.33 4.67,11 5.5,11C6.33,11 7,10.33 7,9.5C7,8.67 6.33,8 5.5,8M18.5,8C17.67,8 17,8.67 17,9.5C17,10.33 17.67,11 18.5,11C19.33,11 20,10.33 20,9.5C20,8.67 19.33,8 18.5,8M5.5,18C4.67,18 4,18.67 4,19.5C4,20.33 4.67,21 5.5,21C6.33,21 7,20.33 7,19.5C7,18.67 6.33,18 5.5,18M18.5,18C17.67,18 17,18.67 17,19.5C17,20.33 17.67,21 18.5,21C19.33,21 20,20.33 20,19.5C20,18.67 19.33,18 18.5,18M12,17C11.17,17 10.5,17.67 10.5,18.5C10.5,19.33 11.17,20 12,20C12.83,20 13.5,19.33 13.5,18.5C13.5,17.67 12.83,17 12,17M9.5,14C8.67,14 8,14.67 8,15.5C8,16.33 8.67,17 9.5,17C10.33,17 11,16.33 11,15.5C11,14.67 10.33,14 9.5,14M14.5,14C13.67,14 13,14.67 13,15.5C13,16.33 13.67,17 14.5,17C15.33,17 16,16.33 16,15.5C16,14.67 15.33,14 14.5,14Z" /></svg>
+      return (
+        <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="18" height="18" rx="5" fill="currentColor" fillOpacity="0.15"/>
+          <circle cx="9" cy="9" r="2" stroke="currentColor" strokeWidth="1.5"/>
+          <circle cx="15" cy="9" r="2" stroke="currentColor" strokeWidth="1.5"/>
+          <circle cx="9" cy="15" r="2" stroke="currentColor" strokeWidth="1.5"/>
+          <circle cx="15" cy="15" r="2" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M9 11V13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M15 11V13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M11 9H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M11 15H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      )
     default:
-      return <Calendar className="w-6 h-6" />
+      return (
+        <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="18" height="18" rx="5" fill="currentColor" fillOpacity="0.15"/>
+          <rect x="7" y="7" width="10" height="10" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M7 10H17" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M10 7L10 17" stroke="currentColor" strokeWidth="1.5"/>
+        </svg>
+      )
   }
 }
 
@@ -345,23 +439,23 @@ const getCategoryIcon = (category: string) => {
 const getCategoryGradient = (category: string) => {
   switch (category.toLowerCase()) {
     case "technology":
-      return "bg-gradient-to-br from-blue-500 to-blue-700 text-white"
+      return "bg-gradient-to-br from-blue-500/90 to-cyan-500/90 text-white"
     case "business":
-      return "bg-gradient-to-br from-amber-500 to-amber-700 text-white"
+      return "bg-gradient-to-br from-indigo-500/90 to-blue-500/90 text-white"
     case "design":
-      return "bg-gradient-to-br from-pink-500 to-pink-700 text-white"
+      return "bg-gradient-to-br from-purple-500/90 to-indigo-500/90 text-white"
     case "marketing":
-      return "bg-gradient-to-br from-green-500 to-green-700 text-white"
+      return "bg-gradient-to-br from-cyan-500/90 to-blue-500/90 text-white"
     case "music":
-      return "bg-gradient-to-br from-purple-500 to-purple-700 text-white"
+      return "bg-gradient-to-br from-violet-500/90 to-purple-500/90 text-white"
     case "sports":
-      return "bg-gradient-to-br from-red-500 to-red-700 text-white"
+      return "bg-gradient-to-br from-blue-500/90 to-indigo-500/90 text-white"
     case "food":
-      return "bg-gradient-to-br from-yellow-500 to-yellow-700 text-white"
+      return "bg-gradient-to-br from-cyan-500/90 to-teal-500/90 text-white"
     case "arts":
-      return "bg-gradient-to-br from-cyan-500 to-cyan-700 text-white"
+      return "bg-gradient-to-br from-purple-500/90 to-violet-500/90 text-white"
     default:
-      return "bg-gradient-to-br from-gray-500 to-gray-700 text-white"
+      return "bg-gradient-to-br from-blue-500/90 to-indigo-500/90 text-white"
   }
 }
 
