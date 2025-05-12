@@ -85,7 +85,7 @@ export const serverGetEventById = async (id: string): Promise<Event | null> => {
         date: new Date().toISOString(),
         endDate: new Date().toISOString(),
         location: 'Location',
-        image: '/placeholder.jpg',
+        image: '/images/default-event.png',
         category: 'Category',
         price: 0,
         seats: 100,
@@ -119,7 +119,7 @@ export const serverCreateEvent = async (
         return {
           ...eventData,
           id: uuidv4(),
-          image: eventData.image || '/placeholder.jpg',
+          image: eventData.image || '/images/default-event.png',
           registrations: 0,
           revenue: 0,
           createdAt: new Date().toISOString(),
@@ -133,7 +133,7 @@ export const serverCreateEvent = async (
     const newEventId = uuidv4();
     
     // Handle image upload if provided
-    let imagePath = eventData.image || '/placeholder.jpg';
+    let imagePath = eventData.image || '/images/default-event.png';
     if (imageBuffer && fileName) {
       try {
         const newFileName = `${newEventId}${path.extname(fileName)}`;
@@ -177,7 +177,7 @@ export const serverCreateEvent = async (
       return {
         ...eventData,
         id: uuidv4(),
-        image: eventData.image || '/placeholder.jpg',
+        image: eventData.image || '/images/default-event.png',
         registrations: 0,
         revenue: 0,
         createdAt: new Date().toISOString(),
@@ -369,7 +369,7 @@ export const serverImportEvents = async (
         return eventDataArray.map(eventData => ({
           ...eventData,
           id: uuidv4(),
-          image: eventData.image || '/placeholder.jpg',
+          image: eventData.image || '/images/default-event.png',
           registrations: 0,
           revenue: 0,
           createdAt: now,
@@ -386,7 +386,12 @@ export const serverImportEvents = async (
       const newEventId = uuidv4();
       
       // Handle image path
-      let imagePath = eventData.image || '/placeholder.jpg';
+      let imagePath = eventData.image || '/images/default-event.png';
+      
+      // For CSV imports, make sure we use the full default image path
+      if (imagePath === 'default-event.png' || imagePath === '/default-event.png') {
+        imagePath = '/images/default-event.png';
+      }
       
       const newEvent: Event = {
         ...eventData,
@@ -429,7 +434,7 @@ export const serverImportEvents = async (
       return eventDataArray.map(eventData => ({
         ...eventData,
         id: uuidv4(),
-        image: eventData.image || '/placeholder.jpg',
+        image: eventData.image || '/images/default-event.png',
         registrations: 0,
         revenue: 0,
         createdAt: now,

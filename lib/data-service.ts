@@ -331,12 +331,28 @@ async function updateEventOnline(id: string, eventData: Partial<Event>, imageFil
   try {
     console.log("[DataService] Updating event", id, "with data:", eventData);
     
-    // Create a JSON-only version that doesn't require FormData for deployment scenarios
-    // This simplifies the request for environments where file handling might be problematic
-    if (!imageFile) {
-      // If no image file, use a simple JSON request instead of FormData
+    let response;
+    
+    // Determine whether to use JSON or FormData based on whether an image is being uploaded
+    if (imageFile) {
+      // Use FormData for image uploads
+      const formData = new FormData();
+      formData.append('data', JSON.stringify(eventData));
+      
+      console.log("[DataService] Adding image file to update request:", imageFile.name);
+      formData.append('image', imageFile);
+      
+      console.log(`[DataService] Sending FormData update request to /api/events/${id} with image`);
+      
+      response = await fetch(`/api/events/${id}`, {
+        method: 'PUT',
+        body: formData,
+      });
+    } else {
+      // If no image file, use a simple JSON request
       console.log("[DataService] Using JSON-only update method (no image)");
-      const response = await fetch(`/api/events/${id}`, {
+      
+      response = await fetch(`/api/events/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -345,112 +361,9 @@ async function updateEventOnline(id: string, eventData: Partial<Event>, imageFil
           data: eventData
         }),
       });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("[DataService] Error updating event:", errorData);
-        throw new Error('Failed to update event: ' + (errorData.error || 'Unknown error'));
-      }
-      
-      const updatedEvent = await response.json();
-      
-      // Update the event with all needed fields for notifications
-      if (!updatedEvent || !updatedEvent.id) {
-        console.error("[DataService] Received invalid event data:", updatedEvent);
-        throw new Error('Invalid event data received from server');
-      }
-      
-      console.log("[DataService] Event updated successfully, broadcasting:", updatedEvent);
-      
-      // Update in-memory storage in production
-      if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
-        try {
-          // Get current events from memory
-          const inMemoryEvents = getInMemoryEvents();
-          
-          // Find and replace the updated event
-          const updatedEvents = inMemoryEvents.map((event: Event) => 
-            event.id === updatedEvent.id ? updatedEvent : event
-          );
-          
-          // Save the updated list
-          saveInMemoryEvents(updatedEvents);
-          console.log('[DataService] Updated event in in-memory storage:', updatedEvent.id);
-        } catch (error) {
-          console.error('[DataService] Error updating event in in-memory storage:', error);
-        }
-      }
-      
-      // Broadcasting code with try-catch...
-      try {
-        // Try multiple broadcast methods to ensure cross-browser notifications
-        // First, reset the realtime sync system to ensure fresh connections
-        realtimeSync.reset();
-        
-        // Wait a moment to ensure the reset takes effect
-        setTimeout(() => {
-          try {
-            // Use the direct broadcast method to ensure it gets sent
-            console.log("[DataService] Broadcasting event-updated event");
-            realtimeSync.broadcast('event-updated', updatedEvent);
-            
-            // Also try to broadcast via the service worker if available
-            if (typeof window !== 'undefined' && 
-                'serviceWorker' in navigator && 
-                navigator.serviceWorker.controller &&
-                window.broadcastViaServiceWorker) {
-              console.log("[DataService] Broadcasting via ServiceWorker");
-              window.broadcastViaServiceWorker({
-                type: 'event-updated',
-                data: updatedEvent
-              });
-            }
-            
-            // Dispatch a custom event on the window for local components
-            if (typeof window !== 'undefined') {
-              console.log("[DataService] Dispatching custom event");
-              const customEvent = new CustomEvent('event-updated', { 
-                detail: updatedEvent 
-              });
-              window.dispatchEvent(customEvent);
-              
-              // Also dispatch a direct notification event as a fallback
-              const notificationEvent = new CustomEvent('custom-notification', {
-                detail: {
-                  type: 'notification',
-                  title: 'Event Updated',
-                  message: `"${updatedEvent.title}" has been updated.`,
-                  link: `/events/${updatedEvent.id}`
-                }
-              });
-              window.dispatchEvent(notificationEvent);
-            }
-          } catch (innerError) {
-            console.error("[DataService] Error in broadcasting event update:", innerError);
-            // Event update still succeeded even if notifications failed
-          }
-        }, 100);
-      } catch (notificationError) {
-        console.error("[DataService] Error in notification part of update:", notificationError);
-        // Event still updated successfully, just notification failed
-      }
-      
-      return updatedEvent;
     }
     
-    // Use FormData for image uploads
-    const formData = new FormData();
-    formData.append('data', JSON.stringify(eventData));
-    
-    if (imageFile) {
-      formData.append('image', imageFile);
-    }
-    
-    const response = await fetch(`/api/events/${id}`, {
-      method: 'PUT',
-      body: formData,
-    });
-    
+    // Handle response
     if (!response.ok) {
       const errorData = await response.json();
       console.error("[DataService] Error updating event:", errorData);
@@ -459,13 +372,18 @@ async function updateEventOnline(id: string, eventData: Partial<Event>, imageFil
     
     const updatedEvent = await response.json();
     
-    // Update the event with all needed fields for notifications
+    // Log the response
+    console.log("[DataService] Received updated event response:", {
+      id: updatedEvent.id,
+      title: updatedEvent.title,
+      image: updatedEvent.image
+    });
+    
+    // Validate response
     if (!updatedEvent || !updatedEvent.id) {
       console.error("[DataService] Received invalid event data:", updatedEvent);
       throw new Error('Invalid event data received from server');
     }
-    
-    console.log("[DataService] Event updated successfully, broadcasting:", updatedEvent);
     
     // Update in-memory storage in production
     if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
@@ -486,17 +404,15 @@ async function updateEventOnline(id: string, eventData: Partial<Event>, imageFil
       }
     }
     
-    // Use a try-catch around the notification and broadcasting part
-    // to make sure event updates succeed even if notifications fail
+    // Broadcasting notifications
     try {
-      // Try multiple broadcast methods to ensure cross-browser notifications
-      // First, reset the realtime sync system to ensure fresh connections
+      // Reset the realtime sync system to ensure fresh connections
       realtimeSync.reset();
       
       // Wait a moment to ensure the reset takes effect
       setTimeout(() => {
         try {
-          // Use the direct broadcast method to ensure it gets sent
+          // Broadcast the updated event
           console.log("[DataService] Broadcasting event-updated event");
           realtimeSync.broadcast('event-updated', updatedEvent);
           
@@ -512,15 +428,15 @@ async function updateEventOnline(id: string, eventData: Partial<Event>, imageFil
             });
           }
           
-          // Dispatch a custom event on the window for local components
+          // Dispatch custom events
           if (typeof window !== 'undefined') {
-            console.log("[DataService] Dispatching custom event");
+            // Event updated event
             const customEvent = new CustomEvent('event-updated', { 
               detail: updatedEvent 
             });
             window.dispatchEvent(customEvent);
             
-            // Also dispatch a direct notification event as a fallback
+            // Notification event
             const notificationEvent = new CustomEvent('custom-notification', {
               detail: {
                 type: 'notification',

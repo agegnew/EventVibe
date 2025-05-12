@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
         const mockEvent = {
           ...eventData,
           id: uuidv4(),
-          image: eventData.image || '/placeholder.jpg',
+          image: eventData.image || '/images/default-event.png',
           registrations: 0,
           revenue: 0,
           createdAt: now,

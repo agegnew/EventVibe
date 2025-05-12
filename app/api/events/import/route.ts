@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
           seats: seatsValidation.value,
           status: statusValidation.value,
           featured: featuredValidation.value,
-          image: record.image || '/placeholder.jpg'
+          image: record.image || '/images/default-event.png'
         }
       } as ValidationSuccess;
     });
@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
         const mockCreatedEvents = eventsToCreate.map(eventData => ({
           ...eventData,
           id: uuidv4(),
-          image: eventData.image || '/placeholder.jpg',
+          image: eventData.image || '/images/default-event.png',
           registrations: 0,
           revenue: 0,
           createdAt: now,
@@ -260,7 +260,7 @@ export async function POST(request: NextRequest) {
               seats: parseInt(record.seats) || 100,
               status: record.status || 'Active',
               featured: record.featured === 'true' || false,
-              image: '/placeholder.jpg',
+              image: '/images/default-event.png',
               registrations: 0,
               revenue: 0,
               createdAt: now,
@@ -293,7 +293,7 @@ export async function POST(request: NextRequest) {
         seats: 100,
         status: 'Active',
         featured: false,
-        image: '/placeholder.jpg',
+        image: '/images/default-event.png',
         registrations: 0,
         revenue: 0,
         createdAt: new Date().toISOString(),
