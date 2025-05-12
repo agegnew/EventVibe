@@ -28,24 +28,38 @@ export async function PUT(
   try {
     const { params } = context;
     const id = params.id;
-    const formData = await request.formData();
-    const eventDataJson = formData.get('data') as string;
-    const eventData = JSON.parse(eventDataJson);
     
-    console.log(`[API] Updating event ${id} with data:`, eventData);
-    
-    // Get the image file if it exists
-    const imageFile = formData.get('image') as File | null;
-    
-    // Process image if provided
+    let eventData: any;
     let imageBuffer: Buffer | undefined;
     let fileName: string | undefined;
+
+    // Check the content type to determine how to parse the request
+    const contentType = request.headers.get('content-type') || '';
     
-    if (imageFile) {
-      const arrayBuffer = await imageFile.arrayBuffer();
-      imageBuffer = Buffer.from(arrayBuffer);
-      fileName = imageFile.name;
+    if (contentType.includes('application/json')) {
+      // Handle JSON requests (better for serverless environments with no file uploads)
+      console.log(`[API] Processing JSON request for event ${id}`);
+      const jsonData = await request.json();
+      eventData = jsonData.data;
+    } else {
+      // Handle multipart/form-data requests (for image uploads)
+      console.log(`[API] Processing FormData request for event ${id}`);
+      const formData = await request.formData();
+      const eventDataJson = formData.get('data') as string;
+      eventData = JSON.parse(eventDataJson);
+      
+      // Get the image file if it exists
+      const imageFile = formData.get('image') as File | null;
+      
+      // Process image if provided
+      if (imageFile) {
+        const arrayBuffer = await imageFile.arrayBuffer();
+        imageBuffer = Buffer.from(arrayBuffer);
+        fileName = imageFile.name;
+      }
     }
+    
+    console.log(`[API] Updating event ${id} with data:`, eventData);
     
     // Update the event
     const updatedEvent = await serverUpdateEvent(id, eventData, imageBuffer, fileName);

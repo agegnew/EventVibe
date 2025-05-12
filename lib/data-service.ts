@@ -251,6 +251,95 @@ async function updateEventOnline(id: string, eventData: Partial<Event>, imageFil
   try {
     console.log("[DataService] Updating event", id, "with data:", eventData);
     
+    // Create a JSON-only version that doesn't require FormData for deployment scenarios
+    // This simplifies the request for environments where file handling might be problematic
+    if (!imageFile) {
+      // If no image file, use a simple JSON request instead of FormData
+      console.log("[DataService] Using JSON-only update method (no image)");
+      const response = await fetch(`/api/events/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          data: eventData
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("[DataService] Error updating event:", errorData);
+        throw new Error('Failed to update event: ' + (errorData.error || 'Unknown error'));
+      }
+      
+      const updatedEvent = await response.json();
+      
+      // Ensure we have a complete event with all needed fields for notifications
+      if (!updatedEvent || !updatedEvent.id) {
+        console.error("[DataService] Received invalid event data:", updatedEvent);
+        throw new Error('Invalid event data received from server');
+      }
+      
+      console.log("[DataService] Event updated successfully, broadcasting:", updatedEvent);
+      
+      // Broadcasting code with try-catch...
+      try {
+        // Try multiple broadcast methods to ensure cross-browser notifications
+        // First, reset the realtime sync system to ensure fresh connections
+        realtimeSync.reset();
+        
+        // Wait a moment to ensure the reset takes effect
+        setTimeout(() => {
+          try {
+            // Use the direct broadcast method to ensure it gets sent
+            console.log("[DataService] Broadcasting event-updated event");
+            realtimeSync.broadcast('event-updated', updatedEvent);
+            
+            // Also try to broadcast via the service worker if available
+            if (typeof window !== 'undefined' && 
+                'serviceWorker' in navigator && 
+                navigator.serviceWorker.controller &&
+                window.broadcastViaServiceWorker) {
+              console.log("[DataService] Broadcasting via ServiceWorker");
+              window.broadcastViaServiceWorker({
+                type: 'event-updated',
+                data: updatedEvent
+              });
+            }
+            
+            // Dispatch a custom event on the window for local components
+            if (typeof window !== 'undefined') {
+              console.log("[DataService] Dispatching custom event");
+              const customEvent = new CustomEvent('event-updated', { 
+                detail: updatedEvent 
+              });
+              window.dispatchEvent(customEvent);
+              
+              // Also dispatch a direct notification event as a fallback
+              const notificationEvent = new CustomEvent('custom-notification', {
+                detail: {
+                  type: 'notification',
+                  title: 'Event Updated',
+                  message: `"${updatedEvent.title}" has been updated.`,
+                  link: `/events/${updatedEvent.id}`
+                }
+              });
+              window.dispatchEvent(notificationEvent);
+            }
+          } catch (innerError) {
+            console.error("[DataService] Error in broadcasting event update:", innerError);
+            // Event update still succeeded even if notifications failed
+          }
+        }, 100);
+      } catch (notificationError) {
+        console.error("[DataService] Error in notification part of update:", notificationError);
+        // Event still updated successfully, just notification failed
+      }
+      
+      return updatedEvent;
+    }
+    
+    // Use FormData for image uploads
     const formData = new FormData();
     formData.append('data', JSON.stringify(eventData));
     
@@ -336,7 +425,7 @@ async function updateEventOnline(id: string, eventData: Partial<Event>, imageFil
     
     return updatedEvent;
   } catch (error) {
-    console.error('Error updating event:', error);
+    console.error('[DataService] Error updating event:', error);
     throw error;
   }
 }
