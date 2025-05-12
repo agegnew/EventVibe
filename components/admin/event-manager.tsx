@@ -126,25 +126,38 @@ export function EventManager() {
   const openEventModal = (event?: Event) => {
     if (event) {
       setCurrentEvent({ ...event })
+      
+      // Set image preview if event has an image
+      if (event.image) {
+        console.log("[EventManager] Setting image preview for:", event.image);
+        setImagePreview(event.image);
+      } else {
+        // Default image for existing event without image
+        console.log("[EventManager] Using default image for existing event without image");
+        setImagePreview("/default-event.png");
+      }
     } else {
+      // Creating a new event
+      console.log("[EventManager] Creating new event with default image");
       setCurrentEvent({
         title: "",
         description: "",
-        date: new Date().toISOString().split("T")[0],
-        endDate: new Date().toISOString().split("T")[0],
+        date: new Date().toISOString().split('T')[0],
+        endDate: new Date().toISOString().split('T')[0],
         location: "",
+        image: "/default-event.png", // Make sure to use the correct path
         category: "",
         price: 0,
-        seats: 0,
+        seats: 100,
         status: "Draft",
-        featured: false,
+        featured: false
       })
+      setImagePreview("/default-event.png");
     }
-    setImagePreview(event?.image || null)
     setIsModalOpen(true)
   }
 
-  // Close the modal
+  // Close the modal and reset form
   const closeModal = () => {
     setIsModalOpen(false)
     setIsDeleteModalOpen(false)
@@ -182,14 +195,30 @@ export function EventManager() {
     const file = e.target.files && e.target.files[0]
     
     if (file) {
+      console.log("[EventManager] Image selected:", file.name, "type:", file.type, "size:", file.size);
+      
+      // Explicitly set the imageFile
       setImageFile(file)
       
-      // Create preview
+      // Create preview for the UI
       const reader = new FileReader()
       reader.onloadend = () => {
+        console.log("[EventManager] Image preview created");
         setImagePreview(reader.result as string)
       }
       reader.readAsDataURL(file)
+      
+      // Make sure to clear any previous image path in currentEvent
+      // This ensures the server knows we're uploading a new image
+      if (currentEvent) {
+        console.log("[EventManager] Clearing previous image path to signal replacement");
+        setCurrentEvent({
+          ...currentEvent,
+          image: undefined // Signal that we want to replace the image
+        })
+      }
+    } else {
+      console.log("[EventManager] No image file selected");
     }
   }
 
@@ -198,16 +227,37 @@ export function EventManager() {
     if (!currentEvent) return
     
     try {
+      // Validate required fields
+      if (!currentEvent.title) {
+        alert('Event title is required');
+        return;
+      }
+      
       console.log("[EventManager] Saving event:", currentEvent.id ? "Update" : "Create", currentEvent);
+      console.log("[EventManager] With image file:", imageFile ? 
+        `${imageFile.name} (${Math.round(imageFile.size/1024)}KB)` : 
+        "None");
       
       if (currentEvent.id) {
         // Update existing event
+        console.log("[EventManager] Updating event:", currentEvent.id);
         const updatedEvent = await updateEvent(currentEvent.id, currentEvent, imageFile || undefined);
         console.log("[EventManager] Event updated successfully:", updatedEvent);
+        
+        // Verify the image path was updated if an image was provided
+        if (imageFile && updatedEvent.image) {
+          console.log("[EventManager] Image updated to:", updatedEvent.image);
+        }
       } else {
         // Create new event
+        console.log("[EventManager] Creating new event");
         const newEvent = await createEvent(currentEvent as any, imageFile || undefined);
         console.log("[EventManager] Event created successfully:", newEvent);
+        
+        // Verify the image path was set if an image was provided
+        if (imageFile && newEvent.image) {
+          console.log("[EventManager] Image set to:", newEvent.image);
+        }
       }
       
       // Refresh events list
@@ -215,6 +265,7 @@ export function EventManager() {
       closeModal();
     } catch (error) {
       console.error("Error saving event:", error);
+      alert('Failed to save event. Please try again.');
     }
   }
 
@@ -459,7 +510,7 @@ export function EventManager() {
                         <div className="flex items-center">
                           <div className="w-10 h-10 rounded-md overflow-hidden mr-3 bg-gray-100 dark:bg-gray-800">
                             <Image
-                              src={event.image || "/placeholder.jpg"}
+                              src={event.image || "/default-event.png"}
                               alt={event.title}
                               width={40}
                               height={40}

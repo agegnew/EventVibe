@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
           seats: seatsValidation.value,
           status: statusValidation.value,
           featured: featuredValidation.value,
-          image: record.image && record.image.trim() !== '' ? record.image : '/images/default-event.png'
+          image: record.image && record.image.trim() !== '' ? record.image : '/images/defaul-event.png'
         }
       } as ValidationSuccess;
     });
@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
         const mockCreatedEvents = eventsToCreate.map(eventData => ({
           ...eventData,
           id: uuidv4(),
-          image: eventData.image && eventData.image.trim() !== '' ? eventData.image : '/images/default-event.png',
+          image: eventData.image && eventData.image.trim() !== '' ? eventData.image : '/images/defaul-event.png',
           registrations: 0,
           revenue: 0,
           createdAt: now,
@@ -260,7 +260,7 @@ export async function POST(request: NextRequest) {
               seats: parseInt(record.seats) || 100,
               status: record.status || 'Active',
               featured: record.featured === 'true' || false,
-              image: '/images/default-event.png',
+              image: '/images/defaul-event.png',
               registrations: 0,
               revenue: 0,
               createdAt: now,
@@ -293,7 +293,7 @@ export async function POST(request: NextRequest) {
         seats: 100,
         status: 'Active',
         featured: false,
-        image: '/images/default-event.png',
+        image: '/images/defaul-event.png',
         registrations: 0,
         revenue: 0,
         createdAt: new Date().toISOString(),

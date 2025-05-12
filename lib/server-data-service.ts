@@ -85,7 +85,7 @@ export const serverGetEventById = async (id: string): Promise<Event | null> => {
         date: new Date().toISOString(),
         endDate: new Date().toISOString(),
         location: 'Location',
-        image: '/images/default-event.png',
+        image: '/default-event.png',
         category: 'Category',
         price: 0,
         seats: 100,
@@ -119,7 +119,7 @@ export const serverCreateEvent = async (
         return {
           ...eventData,
           id: uuidv4(),
-          image: eventData.image || '/images/default-event.png',
+          image: eventData.image || '/default-event.png',
           registrations: 0,
           revenue: 0,
           createdAt: new Date().toISOString(),
@@ -133,7 +133,7 @@ export const serverCreateEvent = async (
     const newEventId = uuidv4();
     
     // Handle image upload if provided
-    let imagePath = eventData.image || '/images/default-event.png';
+    let imagePath = eventData.image || '/default-event.png';
     if (imageBuffer && fileName) {
       try {
         const newFileName = `${newEventId}${path.extname(fileName)}`;
@@ -177,7 +177,7 @@ export const serverCreateEvent = async (
       return {
         ...eventData,
         id: uuidv4(),
-        image: eventData.image || '/images/default-event.png',
+        image: eventData.image || '/default-event.png',
         registrations: 0,
         revenue: 0,
         createdAt: new Date().toISOString(),
@@ -226,11 +226,27 @@ export const serverUpdateEvent = async (
     
     if (imageBuffer && fileName) {
       try {
-        const newFileName = `${id}${path.extname(fileName)}`;
+        console.log(`[ServerDataService] Processing image upload for event ${id}, file: ${fileName}`);
+        
+        // Create a unique filename to avoid any caching issues
+        const timestamp = new Date().getTime();
+        const newFileName = `${id}-${timestamp}${path.extname(fileName)}`;
+        
         imagePath = await saveImage(imageBuffer, newFileName, EVENTS_IMAGE_DIR);
+        console.log(`[ServerDataService] Image saved successfully at ${imagePath}`);
+        
+        // In production, just use the default image path for simplicity
+        if (process.env.NODE_ENV === 'production') {
+          console.log(`[ServerDataService] Running in production - using default image path`);
+          imagePath = '/default-event.png';
+        }
       } catch (imageError) {
         console.error(`[ServerDataService] Error saving image, continuing with update:`, imageError);
-        // Continue with the update even if image saving fails
+        // In production, use the default image
+        if (process.env.NODE_ENV === 'production') {
+          console.log(`[ServerDataService] Using default image path due to error`);
+          imagePath = '/default-event.png';
+        }
       }
     }
     
@@ -369,7 +385,7 @@ export const serverImportEvents = async (
         return eventDataArray.map(eventData => ({
           ...eventData,
           id: uuidv4(),
-          image: eventData.image || '/images/default-event.png',
+          image: eventData.image || '/default-event.png',
           registrations: 0,
           revenue: 0,
           createdAt: now,
@@ -386,11 +402,11 @@ export const serverImportEvents = async (
       const newEventId = uuidv4();
       
       // Handle image path
-      let imagePath = eventData.image || '/images/default-event.png';
+      let imagePath = eventData.image || '/default-event.png';
       
       // For CSV imports, make sure we use the full default image path
-      if (imagePath === 'default-event.png' || imagePath === '/default-event.png') {
-        imagePath = '/images/default-event.png';
+      if (imagePath === 'defaul-event.png' || imagePath === '/defaul-event.png') {
+        imagePath = '/default-event.png';
       }
       
       const newEvent: Event = {
@@ -434,7 +450,7 @@ export const serverImportEvents = async (
       return eventDataArray.map(eventData => ({
         ...eventData,
         id: uuidv4(),
-        image: eventData.image || '/images/default-event.png',
+        image: eventData.image || '/default-event.png',
         registrations: 0,
         revenue: 0,
         createdAt: now,

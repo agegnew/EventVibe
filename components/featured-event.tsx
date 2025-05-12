@@ -21,7 +21,7 @@ export function FeaturedEvent({ event }: FeaturedEventProps) {
     <GlassmorphicCard className="overflow-hidden h-full flex flex-col group" borderGlow={true}>
       <div className="relative h-48 overflow-hidden">
         <Image 
-          src={event.image || "/placeholder.svg"} 
+          src={event.image || "/images/defaul-event.png"} 
           alt={event.title} 
           fill 
           className="object-cover transition-transform duration-700 group-hover:scale-110"
