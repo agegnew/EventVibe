@@ -77,11 +77,24 @@ class RealtimeSync {
   };
 
   private handleMessage(event: MessageEvent) {
-    this.processMessage(event.data);
+    try {
+      this.processMessage(event.data);
+    } catch (error) {
+      console.error('[RealtimeSync] Error handling message:', error);
+      
+      // In production, we want to ensure the application doesn't break due to sync errors
+      const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
+      if (isProduction) {
+        console.log('[RealtimeSync] Production environment - suppressing sync error');
+      }
+    }
   }
   
   private processMessage(message: SyncMessage) {
+    const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
+    
     if (!message || !message.type) {
+      this.logDebug('Received invalid message without type');
       return;
     }
     
@@ -91,22 +104,36 @@ class RealtimeSync {
       return;
     }
 
-    this.logDebug(`Processing message type: ${message.type}`, message);
-    
-    // Find listeners for this event type
-    const listeners = this.eventListeners.get(message.type);
-    if (listeners && listeners.size > 0) {
-      this.logDebug(`Notifying ${listeners.size} listeners for ${message.type}`);
-      // Call each listener with the message data
-      listeners.forEach(callback => {
-        try {
-          callback(message.data);
-        } catch (error) {
-          console.error(`[RealtimeSync] Error in event listener for ${message.type}:`, error);
-        }
-      });
-    } else {
-      this.logDebug(`No listeners for ${message.type}`);
+    try {
+      this.logDebug(`Processing message type: ${message.type}`, message);
+      
+      // Find listeners for this event type
+      const listeners = this.eventListeners.get(message.type);
+      if (listeners && listeners.size > 0) {
+        this.logDebug(`Notifying ${listeners.size} listeners for ${message.type}`);
+        // Call each listener with the message data
+        listeners.forEach(callback => {
+          try {
+            callback(message.data);
+          } catch (error) {
+            console.error(`[RealtimeSync] Error in event listener for ${message.type}:`, error);
+            
+            // In production, we need to prevent individual listener errors from breaking sync
+            if (isProduction) {
+              console.log(`[RealtimeSync] Production environment - continuing despite listener error`);
+            }
+          }
+        });
+      } else {
+        this.logDebug(`No listeners for ${message.type}`);
+      }
+    } catch (error) {
+      console.error(`[RealtimeSync] Error processing message of type ${message.type}:`, error);
+      
+      // In production, we need to ensure the application doesn't break due to sync errors
+      if (isProduction) {
+        console.log('[RealtimeSync] Production environment - suppressing sync error');
+      }
     }
   }
 
@@ -115,6 +142,9 @@ class RealtimeSync {
       this.logDebug('Cannot broadcast - not in browser environment');
       return;
     }
+
+    // In production environment, try to be as resilient as possible
+    const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
     
     this.logDebug(`Broadcasting message type: ${type}`, data);
     
@@ -128,32 +158,56 @@ class RealtimeSync {
     // IMPORTANT: Always process locally first to ensure the current tab always gets updated
     this.notifyLocalListeners(type, data);
     
-    // Then try multiple strategies to broadcast to other tabs/windows
-    this.broadcastToOtherClients(message);
-    
-    // Use localStorage as a guaranteed method for older browsers
     try {
-      const storageKey = 'eventvibe-sync-' + Date.now();
-      localStorage.setItem(storageKey, JSON.stringify(message));
+      // Then try multiple strategies to broadcast to other tabs/windows
+      this.broadcastToOtherClients(message);
       
-      // Need to remove after a short delay
-      setTimeout(() => {
-        localStorage.removeItem(storageKey);
-      }, 500);
-    } catch (e) {
-      this.logDebug('Failed to use localStorage fallback:', e);
-    }
-    
-    // Use service worker if available (this provides cross-browser communication)
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      // Use localStorage as a guaranteed method for older browsers
       try {
-        navigator.serviceWorker.controller.postMessage({
-          type: 'BROADCAST',
-          payload: message
-        });
-        this.logDebug('Broadcast via ServiceWorker');
+        // Only if localStorage is available
+        if (typeof localStorage !== 'undefined') {
+          const storageKey = 'eventvibe-sync-' + Date.now();
+          localStorage.setItem(storageKey, JSON.stringify(message));
+          
+          // Need to remove after a short delay
+          setTimeout(() => {
+            try {
+              localStorage.removeItem(storageKey);
+            } catch (removeError) {
+              // Ignore removal errors
+            }
+          }, 500);
+        }
       } catch (e) {
-        this.logDebug('Failed to use ServiceWorker for broadcast:', e);
+        this.logDebug('Failed to use localStorage fallback:', e);
+      }
+      
+      // Use service worker if available (this provides cross-browser communication)
+      if (typeof window !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        try {
+          navigator.serviceWorker.controller.postMessage({
+            type: 'BROADCAST',
+            payload: message
+          });
+          this.logDebug('Broadcast via ServiceWorker');
+        } catch (e) {
+          this.logDebug('Failed to use ServiceWorker for broadcast:', e);
+        }
+      }
+    } catch (error) {
+      console.error('[RealtimeSync] Error during broadcast:', error);
+      
+      // In production, ensure local listeners still get notified even if broadcast fails
+      if (isProduction) {
+        this.logDebug('Production environment - ensuring local listeners are notified despite broadcast error');
+        try {
+          // Create a short timeout to make this async
+          setTimeout(() => {
+            this.notifyLocalListeners(type, data);
+          }, 0);
+        } catch (notifyError) {
+          console.error('[RealtimeSync] Critical error notifying local listeners:', notifyError);
+        }
       }
     }
   }
@@ -177,41 +231,57 @@ class RealtimeSync {
   }
   
   private broadcastToOtherClients(message: SyncMessage): void {
+    const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
+    
     try {
       if (this.syncMethod === 'broadcastchannel' && this.channel) {
-        this.channel.postMessage(message);
-        this.logDebug('Broadcast via BroadcastChannel');
-      } 
-      else if (this.syncMethod === 'localstorage') {
-        // Clear existing value first
-        localStorage.removeItem(this.localStorageKey);
-        // Set new value to trigger storage event in other tabs
-        localStorage.setItem(this.localStorageKey, JSON.stringify(message));
-        this.logDebug('Broadcast via localStorage');
-        
-        // Need to remove the item after a delay to allow other tabs to read it
-        setTimeout(() => {
+        try {
+          this.channel.postMessage(message);
+          this.logDebug('Broadcast via BroadcastChannel');
+          return; // Successfully broadcast via channel
+        } catch (channelError) {
+          this.logDebug('BroadcastChannel error:', channelError);
+          // Fall through to localStorage method
+          if (isProduction) {
+            // In production, switch to localStorage permanently after BroadcastChannel fails
+            this.channel = null;
+            this.syncMethod = 'localstorage';
+          }
+        }
+      }
+      
+      // Either no BroadcastChannel or it failed, try localStorage
+      if (typeof localStorage !== 'undefined') {
+        try {
+          // Clear existing value first
           localStorage.removeItem(this.localStorageKey);
-        }, 500);
+          // Set new value to trigger storage event in other tabs
+          localStorage.setItem(this.localStorageKey, JSON.stringify(message));
+          this.logDebug('Broadcast via localStorage');
+          
+          // Need to remove the item after a delay to allow other tabs to read it
+          setTimeout(() => {
+            try {
+              localStorage.removeItem(this.localStorageKey);
+            } catch (removeError) {
+              // Ignore removal errors
+            }
+          }, 500);
+          
+          return; // Successfully broadcast via localStorage
+        } catch (localStorageError) {
+          this.logDebug('localStorage broadcast error:', localStorageError);
+          // Both methods failed
+        }
       }
-      else {
-        this.logDebug('No broadcast method available');
-      }
+      
+      this.logDebug('No broadcast method available or all methods failed');
     } catch (error) {
       console.error('[RealtimeSync] Error broadcasting message:', error);
       
-      // If the preferred method fails, try the fallback
-      if (this.syncMethod === 'broadcastchannel') {
-        this.logDebug('BroadcastChannel failed, trying localStorage fallback');
-        this.channel = null;
-        this.syncMethod = 'localstorage';
-        
-        try {
-          localStorage.setItem(this.localStorageKey, JSON.stringify(message));
-          setTimeout(() => localStorage.removeItem(this.localStorageKey), 500);
-        } catch (err) {
-          console.error('[RealtimeSync] Fallback broadcast also failed:', err);
-        }
+      // In production, log error but don't break functionality
+      if (isProduction) {
+        this.logDebug('Production environment - continuing despite broadcast error');
       }
     }
   }

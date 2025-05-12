@@ -33,9 +33,11 @@ const NOTIFICATIONS_STORAGE_KEY = 'eventvibe_notifications';
 // Helper function to save notifications to server
 const saveNotificationsToServer = async (notifications: Notification[]): Promise<void> => {
   try {
-    // First check if the notifications endpoint exists and is enabled
-    if (typeof window !== 'undefined' && window.DISABLE_NOTIFICATION_SERVER_SAVE) {
-      // Skip server save if explicitly disabled
+    // Always skip server save in production or if explicitly disabled
+    if (typeof window !== 'undefined' && 
+        (window.DISABLE_NOTIFICATION_SERVER_SAVE || 
+         window.location.hostname !== 'localhost')) {
+      // Skip server save in production or if explicitly disabled
       return;
     }
     
