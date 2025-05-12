@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
           seats: seatsValidation.value,
           status: statusValidation.value,
           featured: featuredValidation.value,
-          image: record.image && record.image.trim() !== '' ? record.image : '/images/defaul-event.png'
+          image: record.image && record.image.trim() !== '' ? record.image : '/default-event.png'
         }
       } as ValidationSuccess;
     });
@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
         const mockCreatedEvents = eventsToCreate.map(eventData => ({
           ...eventData,
           id: uuidv4(),
-          image: eventData.image && eventData.image.trim() !== '' ? eventData.image : '/images/defaul-event.png',
+          image: eventData.image && eventData.image.trim() !== '' ? eventData.image : '/default-event.png',
           registrations: 0,
           revenue: 0,
           createdAt: now,
@@ -250,17 +250,29 @@ export async function POST(request: NextRequest) {
             const now = new Date().toISOString();
             const mockEvents = records.slice(0, 10).map((record: any) => ({
               id: uuidv4(),
-              title: record.title || 'Imported Event',
+              title: record.title || 'Event',
               description: record.description || 'Event description',
-              date: record.date ? new Date(record.date).toISOString() : now,
-              endDate: record.endDate ? new Date(record.endDate).toISOString() : now,
+              date: (() => {
+                try {
+                  return new Date(record.date).toISOString();
+                } catch (e) {
+                  return new Date().toISOString();
+                }
+              })(),
+              endDate: (() => {
+                try {
+                  return record.endDate ? new Date(record.endDate).toISOString() : new Date().toISOString();
+                } catch (e) {
+                  return new Date().toISOString();
+                }
+              })(),
               location: record.location || 'Location',
-              category: record.category || 'Category',
+              category: record.category || 'General',
               price: parseFloat(record.price) || 0,
               seats: parseInt(record.seats) || 100,
               status: record.status || 'Active',
-              featured: record.featured === 'true' || false,
-              image: '/images/defaul-event.png',
+              featured: ['true', 'yes', '1'].includes(String(record.featured || '').toLowerCase()),
+              image: record.image && record.image.trim() !== '' ? record.image : '/default-event.png',
               registrations: 0,
               revenue: 0,
               createdAt: now,

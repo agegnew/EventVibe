@@ -3,6 +3,7 @@ import Image from "next/image"
 import { Calendar, MapPin, DollarSign } from "lucide-react"
 import { GlassmorphicCard } from "@/components/ui-elements/glassmorphic-card"
 import { NeumorphicButton } from "@/components/ui-elements/neumorphic-button"
+import { useCallback } from "react"
 
 interface EventCardProps {
   event: {
@@ -18,11 +19,30 @@ interface EventCardProps {
 }
 
 export function EventCard({ event }: EventCardProps) {
+  // Helper function to normalize image paths
+  const getImageUrl = useCallback((imagePath: string | undefined): string => {
+    if (!imagePath) return "/default-event.png";
+    
+    // Check if it's already an absolute URL
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    
+    // Handle virtual image paths for uploaded images in production
+    if (imagePath.startsWith('/uploads/')) {
+      console.log(`[EventCard] Using default-event.png for virtual image path: ${imagePath}`);
+      return "/default-event.png";
+    }
+    
+    // Use the provided path
+    return imagePath;
+  }, []);
+
   return (
     <GlassmorphicCard className="overflow-hidden h-full flex flex-col group" borderGlow={true}>
       <div className="relative h-48 overflow-hidden">
         <Image 
-          src={event.image || "/default-event.png"} 
+          src={getImageUrl(event.image)} 
           alt={event.title} 
           fill 
           className="object-cover transition-transform duration-700 group-hover:scale-110" 

@@ -330,6 +330,25 @@ export function EventDetail({ eventId }: { eventId: string }) {
     }
   }, []);
 
+  // Add a helper function to normalize image paths
+  const getImageUrl = useCallback((imagePath: string | undefined): string => {
+    if (!imagePath) return "/default-event.png";
+    
+    // Check if it's already an absolute URL
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    
+    // Handle virtual image paths for uploaded images in production
+    if (imagePath.startsWith('/uploads/')) {
+      console.log(`[EventDetail] Using default-event.png for virtual image path: ${imagePath}`);
+      return "/default-event.png";
+    }
+    
+    // Use the provided path
+    return imagePath;
+  }, []);
+
   // Handle what to show when event is a mock/skeleton
   const renderEventContent = () => {
     if (!event) return null;
@@ -471,7 +490,7 @@ export function EventDetail({ eventId }: { eventId: string }) {
           <div className="relative">
             <div className="absolute inset-0 z-0">
               <Image 
-                src={event.image || "/default-event.png"} 
+                src={getImageUrl(event.image)} 
                 alt={event.title || "Event"} 
                 fill 
                 className="object-cover" 
