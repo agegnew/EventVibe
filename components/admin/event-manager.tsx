@@ -46,9 +46,15 @@ export function EventManager() {
     setLoading(true)
     try {
       const allEvents = await getAllEvents()
-      setEvents(allEvents)
+      
+      // Sort events by date, most recent first
+      const sortedEvents = [...allEvents].sort((a, b) => {
+        return new Date(b.date).getTime() - new Date(a.date).getTime()
+      })
+      
+      setEvents(sortedEvents)
     } catch (error) {
-      console.error("Error loading events:", error)
+      console.error("Error fetching events:", error)
     } finally {
       setLoading(false)
     }
@@ -284,7 +290,20 @@ export function EventManager() {
         events: result.events
       })
       
-      // Refresh events list
+      // Immediately update the events list with new imports if we have them
+      if (result.events && result.events.length > 0) {
+        console.log(`Adding ${result.events.length} imported events to UI`)
+        
+        // Combine existing events with the newly imported ones
+        const updatedEvents = [...events, ...result.events].sort((a, b) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        )
+        
+        // Update the UI immediately
+        setEvents(updatedEvents)
+      }
+      
+      // Also do a full refresh to ensure all data is in sync
       await fetchEvents()
     } catch (error) {
       console.error('Error importing CSV:', error)

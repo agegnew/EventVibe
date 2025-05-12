@@ -53,6 +53,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sameSite: 'lax'
     });
     
+    // Update in-memory event registrations if events array is included in update
+    if (userData.events && typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+      try {
+        // Import the function dynamically to avoid circular dependencies
+        import('@/lib/data-service').then(({ saveInMemoryUserEvents }) => {
+          saveInMemoryUserEvents(user.id, userData.events || []);
+          console.log('[Auth] Updated in-memory user events for user', user.id);
+        });
+      } catch (error) {
+        console.error('[Auth] Error updating in-memory user events:', error);
+      }
+    }
+    
     console.log('[Auth] User data updated:', userData);
   };
   

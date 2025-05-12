@@ -128,7 +128,34 @@ export const getAllEvents = async (): Promise<Event[]> => {
         throw new Error('Failed to fetch events');
       }
       
-      const events = await response.json();
+      let events = await response.json();
+      
+      // In production, merge with in-memory events
+      if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+        try {
+          const inMemoryEvents = getInMemoryEvents();
+          
+          if (inMemoryEvents && inMemoryEvents.length > 0) {
+            console.log(`[DataService] Merging ${inMemoryEvents.length} in-memory events with ${events.length} server events`);
+            
+            // Create a map of existing event IDs to avoid duplicates
+            const existingEventIds = new Set(events.map((e: Event) => e.id));
+            
+            // Filter in-memory events to only include those not already in the server response
+            const uniqueMemoryEvents = inMemoryEvents.filter((e: Event) => !existingEventIds.has(e.id));
+            
+            if (uniqueMemoryEvents.length > 0) {
+              console.log(`[DataService] Adding ${uniqueMemoryEvents.length} unique in-memory events`);
+              events = [...events, ...uniqueMemoryEvents];
+              
+              // Always update the in-memory store with the combined list
+              saveInMemoryEvents(events);
+            }
+          }
+        } catch (memoryError) {
+          console.error('[DataService] Error merging in-memory events:', memoryError);
+        }
+      }
       
       // Save events to IndexedDB for offline use
       await offlineDB.saveEvents(events);
@@ -145,9 +172,48 @@ export const getAllEvents = async (): Promise<Event[]> => {
     // If online fetch fails, try to get from IndexedDB
     try {
       console.log('[DataService] Fetching failed, trying IndexedDB fallback');
-      return await offlineDB.getEvents();
+      const dbEvents = await offlineDB.getEvents();
+      
+      // In production, also merge with in-memory events
+      if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+        try {
+          const inMemoryEvents = getInMemoryEvents();
+          
+          if (inMemoryEvents && inMemoryEvents.length > 0) {
+            console.log(`[DataService] Merging ${inMemoryEvents.length} in-memory events with ${dbEvents.length} IndexedDB events`);
+            
+            // Create a map of existing event IDs to avoid duplicates
+            const existingEventIds = new Set(dbEvents.map((e: Event) => e.id));
+            
+            // Filter in-memory events to only include those not already in IndexedDB
+            const uniqueMemoryEvents = inMemoryEvents.filter((e: Event) => !existingEventIds.has(e.id));
+            
+            if (uniqueMemoryEvents.length > 0) {
+              return [...dbEvents, ...uniqueMemoryEvents];
+            }
+          }
+        } catch (memoryError) {
+          console.error('[DataService] Error merging in-memory events with IndexedDB:', memoryError);
+        }
+      }
+      
+      return dbEvents;
     } catch (dbError) {
       console.error('[DataService] IndexedDB fallback failed:', dbError);
+      
+      // Last resort: try to get events from in-memory storage only
+      if (typeof window !== 'undefined') {
+        try {
+          const inMemoryEvents = getInMemoryEvents();
+          if (inMemoryEvents && inMemoryEvents.length > 0) {
+            console.log(`[DataService] Returning ${inMemoryEvents.length} in-memory events as last resort`);
+            return inMemoryEvents;
+          }
+        } catch (memoryError) {
+          console.error('[DataService] In-memory events fallback failed:', memoryError);
+        }
+      }
+      
       return [];
     }
   }
@@ -209,6 +275,20 @@ async function createEventOnline(eventData: Omit<Event, 'id' | 'createdAt' | 'up
   }
   
   const newEvent = await response.json();
+  
+  // Also save to in-memory storage in production
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    try {
+      // Get current events from memory
+      const inMemoryEvents = getInMemoryEvents();
+      
+      // Add the new event
+      saveInMemoryEvents([...inMemoryEvents, newEvent]);
+      console.log('[DataService] Saved new event to in-memory storage:', newEvent.id);
+    } catch (error) {
+      console.error('[DataService] Error saving new event to in-memory storage:', error);
+    }
+  }
   
   // Broadcast the event creation to other tabs
   realtimeSync.broadcast('event-created', newEvent);
@@ -274,13 +354,32 @@ async function updateEventOnline(id: string, eventData: Partial<Event>, imageFil
       
       const updatedEvent = await response.json();
       
-      // Ensure we have a complete event with all needed fields for notifications
+      // Update the event with all needed fields for notifications
       if (!updatedEvent || !updatedEvent.id) {
         console.error("[DataService] Received invalid event data:", updatedEvent);
         throw new Error('Invalid event data received from server');
       }
       
       console.log("[DataService] Event updated successfully, broadcasting:", updatedEvent);
+      
+      // Update in-memory storage in production
+      if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+        try {
+          // Get current events from memory
+          const inMemoryEvents = getInMemoryEvents();
+          
+          // Find and replace the updated event
+          const updatedEvents = inMemoryEvents.map((event: Event) => 
+            event.id === updatedEvent.id ? updatedEvent : event
+          );
+          
+          // Save the updated list
+          saveInMemoryEvents(updatedEvents);
+          console.log('[DataService] Updated event in in-memory storage:', updatedEvent.id);
+        } catch (error) {
+          console.error('[DataService] Error updating event in in-memory storage:', error);
+        }
+      }
       
       // Broadcasting code with try-catch...
       try {
@@ -360,13 +459,32 @@ async function updateEventOnline(id: string, eventData: Partial<Event>, imageFil
     
     const updatedEvent = await response.json();
     
-    // Ensure we have a complete event with all needed fields for notifications
+    // Update the event with all needed fields for notifications
     if (!updatedEvent || !updatedEvent.id) {
       console.error("[DataService] Received invalid event data:", updatedEvent);
       throw new Error('Invalid event data received from server');
     }
     
     console.log("[DataService] Event updated successfully, broadcasting:", updatedEvent);
+    
+    // Update in-memory storage in production
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+      try {
+        // Get current events from memory
+        const inMemoryEvents = getInMemoryEvents();
+        
+        // Find and replace the updated event
+        const updatedEvents = inMemoryEvents.map((event: Event) => 
+          event.id === updatedEvent.id ? updatedEvent : event
+        );
+        
+        // Save the updated list
+        saveInMemoryEvents(updatedEvents);
+        console.log('[DataService] Updated event in in-memory storage:', updatedEvent.id);
+      } catch (error) {
+        console.error('[DataService] Error updating event in in-memory storage:', error);
+      }
+    }
     
     // Use a try-catch around the notification and broadcasting part
     // to make sure event updates succeed even if notifications fail
@@ -475,6 +593,23 @@ async function deleteEventOnline(id: string): Promise<boolean> {
     throw new Error('Failed to delete event');
   }
   
+  // Also remove from in-memory storage in production
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    try {
+      // Get current events from memory
+      const inMemoryEvents = getInMemoryEvents();
+      
+      // Filter out the deleted event
+      const updatedEvents = inMemoryEvents.filter((event: Event) => event.id !== id);
+      
+      // Save the updated list
+      saveInMemoryEvents(updatedEvents);
+      console.log('[DataService] Removed deleted event from in-memory storage:', id);
+    } catch (error) {
+      console.error('[DataService] Error removing deleted event from in-memory storage:', error);
+    }
+  }
+  
   // Broadcast the event deletion to other tabs
   realtimeSync.broadcast('event-deleted', { id });
   
@@ -525,6 +660,31 @@ export const getUserById = async (id: string): Promise<User | null> => {
       }
       
       const user = await response.json();
+      
+      // In production, merge with in-memory user events
+      if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && user) {
+        try {
+          const inMemoryEventIds = getInMemoryUserEvents(id);
+          
+          if (inMemoryEventIds && inMemoryEventIds.length > 0) {
+            console.log(`[DataService] Merging ${inMemoryEventIds.length} in-memory user events for user ${id}`);
+            
+            // Create a set of existing event IDs for fast lookup
+            const existingEventIds = new Set(user.events || []);
+            
+            // Add any in-memory events that aren't already in the user's events
+            inMemoryEventIds.forEach(eventId => {
+              if (!existingEventIds.has(eventId)) {
+                if (!user.events) user.events = [];
+                user.events.push(eventId);
+                console.log(`[DataService] Added in-memory event ${eventId} to user ${id}`);
+              }
+            });
+          }
+        } catch (memoryError) {
+          console.error('[DataService] Error merging in-memory user events:', memoryError);
+        }
+      }
       
       // Save current user to IndexedDB for offline use
       if (user) {
@@ -659,6 +819,35 @@ async function registerForEventOnline(userId: string, eventId: string): Promise<
     if (result.success) {
       console.log('[DataService] Registration successful:', result);
       
+      // For production environment, also save to in-memory storage
+      if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+        try {
+          // Update user's registered events in memory
+          const userEvents = getInMemoryUserEvents(userId);
+          if (!userEvents.includes(eventId)) {
+            saveInMemoryUserEvents(userId, [...userEvents, eventId]);
+            console.log(`[DataService] Saved user registration to in-memory storage: User ${userId}, Event ${eventId}`);
+          }
+          
+          // Update event registrations in memory
+          const inMemoryEvents = getInMemoryEvents();
+          const updatedEvents = inMemoryEvents.map((event: Event) => {
+            if (event.id === eventId) {
+              return {
+                ...event,
+                registrations: event.registrations + 1,
+                revenue: event.revenue + event.price
+              };
+            }
+            return event;
+          });
+          
+          saveInMemoryEvents(updatedEvents);
+        } catch (error) {
+          console.error('[DataService] Error saving registration to in-memory storage:', error);
+        }
+      }
+      
       // First, broadcast the user-registered event for notifications
       console.log('[DataService] Broadcasting user-registered event');
       realtimeSync.broadcast('user-registered', {
@@ -735,6 +924,35 @@ async function unregisterFromEventOnline(userId: string, eventId: string): Promi
     if (result.success) {
       console.log('[DataService] Unregistration successful:', result);
       
+      // For production environment, also update in-memory storage
+      if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+        try {
+          // Update user's registered events in memory
+          const userEvents = getInMemoryUserEvents(userId);
+          const updatedUserEvents = userEvents.filter(id => id !== eventId);
+          saveInMemoryUserEvents(userId, updatedUserEvents);
+          console.log(`[DataService] Removed event from user's in-memory storage: User ${userId}, Event ${eventId}`);
+          
+          // Update event registrations in memory
+          const inMemoryEvents = getInMemoryEvents();
+          const updatedEvents = inMemoryEvents.map((event: Event) => {
+            if (event.id === eventId) {
+              return {
+                ...event,
+                registrations: Math.max(0, event.registrations - 1),
+                // Optionally adjust revenue if you want to handle refunds
+                revenue: Math.max(0, event.revenue - event.price)
+              };
+            }
+            return event;
+          });
+          
+          saveInMemoryEvents(updatedEvents);
+        } catch (error) {
+          console.error('[DataService] Error updating in-memory storage for unregistration:', error);
+        }
+      }
+      
       // First, broadcast the user-unregistered event for notifications
       console.log('[DataService] Broadcasting user-unregistered event');
       realtimeSync.broadcast('user-unregistered', {
@@ -782,6 +1000,60 @@ export const unregisterFromEvent = async (userId: string, eventId: string): Prom
   }
 };
 
+// In-memory store for production environment
+let inMemoryEvents: Event[] = [];
+let inMemoryUserEvents: Record<string, string[]> = {}; // userId -> eventIds
+
+// Function to get events from memory in production
+export const getInMemoryEvents = (): Event[] => {
+  // First check if we have stored events in localStorage
+  try {
+    const storedEvents = localStorage.getItem('cachedEvents');
+    if (storedEvents) {
+      inMemoryEvents = JSON.parse(storedEvents);
+    }
+  } catch (e: unknown) {
+    console.error('Error reading from localStorage:', e);
+  }
+  return inMemoryEvents;
+};
+
+// Function to save events to memory in production
+export const saveInMemoryEvents = (events: Event[]): void => {
+  inMemoryEvents = events;
+  // Also save to localStorage for persistence across page refreshes
+  try {
+    localStorage.setItem('cachedEvents', JSON.stringify(inMemoryEvents));
+  } catch (e: unknown) {
+    console.error('Error saving to localStorage:', e);
+  }
+};
+
+// Function to get user events from memory in production
+export const getInMemoryUserEvents = (userId: string): string[] => {
+  try {
+    // First check if we have stored user events in localStorage
+    const storedUserEvents = localStorage.getItem(`user_events_${userId}`);
+    if (storedUserEvents) {
+      inMemoryUserEvents[userId] = JSON.parse(storedUserEvents);
+    }
+  } catch (e: unknown) {
+    console.error('Error reading user events from localStorage:', e);
+  }
+  return inMemoryUserEvents[userId] || [];
+};
+
+// Function to save user events to memory in production
+export const saveInMemoryUserEvents = (userId: string, eventIds: string[]): void => {
+  inMemoryUserEvents[userId] = eventIds;
+  // Also save to localStorage for persistence across page refreshes
+  try {
+    localStorage.setItem(`user_events_${userId}`, JSON.stringify(eventIds));
+  } catch (e: unknown) {
+    console.error('Error saving user events to localStorage:', e);
+  }
+};
+
 // Bulk import events from CSV
 export const importEventsFromCsv = async (csvFile: File): Promise<{ events: Event[]; message: string }> => {
   const formData = new FormData();
@@ -799,6 +1071,24 @@ export const importEventsFromCsv = async (csvFile: File): Promise<{ events: Even
   }
   
   const result = await response.json();
+  
+  // For production environment, also save the imported events to in-memory store
+  if (typeof window !== 'undefined' && result.events && result.events.length > 0) {
+    try {
+      // First get the current events (either from memory or localStorage)
+      const currentEvents = getInMemoryEvents();
+      
+      // Merge the new events with existing ones
+      const updatedEvents = [...currentEvents, ...result.events];
+      
+      // Save the updated list back to memory and localStorage
+      saveInMemoryEvents(updatedEvents);
+      
+      console.log(`[DataService] Saved ${result.events.length} imported events to memory storage`);
+    } catch (error) {
+      console.error('[DataService] Error saving imported events to memory:', error);
+    }
+  }
   
   // Broadcast each imported event to other tabs
   if (result.events && result.events.length > 0) {
