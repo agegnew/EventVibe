@@ -1,21 +1,31 @@
 "use client"
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+
+// Define message type for service worker broadcast
+interface SWMessage {
+  type: string;
+  data: any;
+}
 
 // Extend Window interface to include our custom method
 declare global {
   interface Window {
-    broadcastViaServiceWorker?: (message: any) => void;
+    broadcastViaServiceWorker?: (message: SWMessage) => boolean;
+    serviceWorkerReady?: boolean;
   }
 }
 
 export function ServiceWorkerRegister() {
+  const [isRegistered, setIsRegistered] = useState(false);
+
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       // Register service worker
       navigator.serviceWorker.register('/sw.js')
         .then(registration => {
           console.log('ServiceWorker registration successful with scope:', registration.scope)
+          setIsRegistered(true);
           
           // Watch for updates
           registration.onupdatefound = () => {
@@ -37,13 +47,25 @@ export function ServiceWorkerRegister() {
           navigator.serviceWorker.addEventListener('message', (event) => {
             console.log('[ServiceWorkerRegister] Message from SW:', event.data)
             
-            // If the message is a sync payload, we could dispatch it to relevant components
+            // If the message is a sync payload, dispatch it to relevant components
             if (event.data && event.data.type) {
-              // Create a custom event to notify components
-              const customEvent = new CustomEvent('realtime-sync', { 
-                detail: event.data 
-              })
-              window.dispatchEvent(customEvent)
+              try {
+                // Create a custom event to notify components
+                const customEvent = new CustomEvent('realtime-sync', { 
+                  detail: event.data 
+                });
+                window.dispatchEvent(customEvent);
+                
+                // Also try to create a typed event for more direct listening
+                if (event.data.payload && event.data.payload.type) {
+                  const typedEvent = new CustomEvent(`eventvibe-${event.data.payload.type}`, {
+                    detail: event.data.payload.data
+                  });
+                  window.dispatchEvent(typedEvent);
+                }
+              } catch (error) {
+                console.error('[ServiceWorkerRegister] Error dispatching event:', error);
+              }
             }
           })
         })
@@ -64,30 +86,52 @@ export function ServiceWorkerRegister() {
     // Set up realtime communication between tabs via service worker
     const setupRealtimeRelayViaSW = () => {
       if (navigator.serviceWorker.controller) {
+        // Mark service worker as ready for other components
+        window.serviceWorkerReady = true;
+        
         // This function can be used to broadcast messages to other tabs via SW
-        window.broadcastViaServiceWorker = (message: any) => {
-          navigator.serviceWorker.controller?.postMessage({
-            type: 'BROADCAST',
-            payload: message
-          })
-        }
+        window.broadcastViaServiceWorker = (message: SWMessage) => {
+          if (navigator.serviceWorker.controller) {
+            try {
+              navigator.serviceWorker.controller.postMessage({
+                type: 'BROADCAST',
+                payload: message
+              });
+              return true;
+            } catch (error) {
+              console.error('[ServiceWorkerRegister] Error broadcasting via SW:', error);
+              return false;
+            }
+          }
+          return false;
+        };
+        
+        // Send a ping to test if it's working
+        setTimeout(() => {
+          console.log('[ServiceWorkerRegister] Testing service worker broadcast...');
+          window.broadcastViaServiceWorker?.({
+            type: 'ping',
+            data: { source: 'ServiceWorkerRegister', time: Date.now() }
+          });
+        }, 2000);
       }
-    }
+    };
     
     // Set up when the service worker is ready
     if (navigator.serviceWorker.controller) {
-      setupRealtimeRelayViaSW()
+      setupRealtimeRelayViaSW();
     } else {
-      navigator.serviceWorker.addEventListener('controllerchange', setupRealtimeRelayViaSW)
+      navigator.serviceWorker.addEventListener('controllerchange', setupRealtimeRelayViaSW);
     }
     
     return () => {
       // Clean up
       if (navigator.serviceWorker) {
-        navigator.serviceWorker.removeEventListener('controllerchange', () => {})
+        navigator.serviceWorker.removeEventListener('controllerchange', () => {});
       }
     }
-  }, [])
+  }, []);
   
-  return null
+  // Hidden component, used only for side effects
+  return null;
 } 

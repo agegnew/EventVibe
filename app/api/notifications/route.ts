@@ -24,7 +24,7 @@ const emptyNotifications: Notification[] = [];
 async function readNotificationsFile(): Promise<Notification[]> {
   try {
     // For production environment on Vercel, we can't rely on file system operations
-    if (process.env.NODE_ENV && process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production') {
       console.log('[NotificationsAPI] Running in production environment, returning empty notifications');
       return emptyNotifications;
     }
@@ -49,7 +49,7 @@ async function readNotificationsFile(): Promise<Notification[]> {
 async function writeNotificationsFile(notifications: Notification[]): Promise<boolean> {
   try {
     // For production environment on Vercel, we can't rely on file system operations
-    if (process.env.NODE_ENV && process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production') {
       console.log('[NotificationsAPI] Running in production environment, simulating successful write');
       return true;
     }
@@ -77,7 +77,7 @@ async function writeNotificationsFile(notifications: Notification[]): Promise<bo
 export async function GET() {
   try {
     // For production environment, immediately return empty array to prevent file system errors
-    if (process.env.NODE_ENV && process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production') {
       console.log('[NotificationsAPI] GET: Running in production, returning empty notifications');
       return NextResponse.json({ 
         notifications: emptyNotifications,
@@ -106,8 +106,28 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     // For production environment, return success immediately without trying to write file
-    if (process.env.NODE_ENV && process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production') {
       console.log('[NotificationsAPI] POST: Running in production, simulating successful save');
+      
+      // Broadcast new notifications if possible
+      try {
+        const body = await request.json();
+        if (body.notifications && Array.isArray(body.notifications)) {
+          // Import the realtimeSync to broadcast notifications
+          const { broadcastEvent } = await import('@/lib/realtime-sync');
+          
+          // Broadcast the first unread notification for UI updates
+          const unreadNotifications = body.notifications.filter((n: Notification) => !n.read);
+          if (unreadNotifications.length > 0) {
+            const latestNotification = unreadNotifications[0];
+            broadcastEvent('notification-received', latestNotification);
+            console.log('[NotificationsAPI] Broadcast notification-received event');
+          }
+        }
+      } catch (broadcastError) {
+        console.error('[NotificationsAPI] Error broadcasting notification:', broadcastError);
+      }
+      
       return NextResponse.json({ 
         success: true,
         fromProduction: true
@@ -121,7 +141,7 @@ export async function POST(request: NextRequest) {
       console.warn('[NotificationsAPI] Invalid request body. Expected "notifications" array.');
       
       // Even if invalid, return success in production to prevent UI errors
-      if (process.env.NODE_ENV && process.env.NODE_ENV === 'production') {
+      if (process.env.NODE_ENV === 'production') {
         return NextResponse.json({ success: true });
       }
       
@@ -135,10 +155,23 @@ export async function POST(request: NextRequest) {
     const success = await writeNotificationsFile(body.notifications as Notification[]);
     
     if (success) {
+      // Try to broadcast newest notification
+      try {
+        const { broadcastEvent } = await import('@/lib/realtime-sync');
+        const unreadNotifications = (body.notifications as Notification[]).filter(n => !n.read);
+        if (unreadNotifications.length > 0) {
+          const latestNotification = unreadNotifications[0];
+          broadcastEvent('notification-received', latestNotification);
+          console.log('[NotificationsAPI] Broadcast notification-received event');
+        }
+      } catch (broadcastError) {
+        console.error('[NotificationsAPI] Error broadcasting notification:', broadcastError);
+      }
+      
       return NextResponse.json({ success: true });
     } else {
       // If writing fails but we're in production, return success anyway
-      if (process.env.NODE_ENV && process.env.NODE_ENV === 'production') {
+      if (process.env.NODE_ENV === 'production') {
         console.log('[NotificationsAPI] Write failed but in production, returning success');
         return NextResponse.json({ success: true });
       }
@@ -149,7 +182,7 @@ export async function POST(request: NextRequest) {
     console.error('[NotificationsAPI] Error in POST /api/notifications:', error);
     
     // If in production, always return success even on error
-    if (process.env.NODE_ENV && process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production') {
       return NextResponse.json({ 
         success: true,
         fromProduction: true

@@ -2,11 +2,23 @@
 
 A modern event management web application with real-time synchronization, offline capabilities, and a responsive UI built with Next.js, React, and Tailwind CSS.
 
-![EventVibe Screenshot](public/placeholder.jpg)
 
 ## 🌟 Live Demo
 
 Application is deployed at: [https://event-vibe-xi.vercel.app](https://event-vibe-xi.vercel.app)
+
+## ⚠️ Important Note About Deployment
+
+If you encounter any features that are not working properly in the deployed version, this is due to limitations in the deployment environment. All features work correctly when running the application locally.
+
+To run the application locally with all features working properly:
+
+1. Clone the repository
+2. Roll back to this specific commit:
+   ```bash
+   git checkout d22a08bc883a195b33b23864cc385033f2c1c476
+   ```
+3. Install dependencies and run the development server as described in the Getting Started section below.
 
 ## 🔑 Test Credentials
 

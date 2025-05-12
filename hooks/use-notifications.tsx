@@ -245,6 +245,42 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       });
     };
     
+    // Add handler for direct notification reception
+    const handleNotificationReceived = (data: any) => {
+      console.log('[useNotifications] Received notification-received with data:', data);
+      
+      if (!data) {
+        console.error('[useNotifications] Invalid notification data received');
+        return;
+      }
+      
+      // Check if we already have this notification (by id)
+      if (data.id && notifications.some(n => n.id === data.id)) {
+        console.log('[useNotifications] Notification already exists, not adding duplicate');
+        return;
+      }
+      
+      // Add the notification directly
+      addNotification({
+        title: data.title || 'Notification',
+        message: data.message || '',
+        type: data.type || 'info',
+        link: data.link
+      });
+    };
+    
+    // Subscribe to additional notification event
+    const unsubNotificationReceived = realtimeSync.subscribe('notification-received', handleNotificationReceived);
+    
+    // Also listen for direct DOM events for notifications (fallback)
+    const handleDomNotificationEvent = (event: Event) => {
+      if ((event as CustomEvent).detail) {
+        handleNotificationReceived((event as CustomEvent).detail);
+      }
+    };
+    
+    window.addEventListener('eventvibe-notification-received', handleDomNotificationEvent);
+    
     // Subscribe to real-time events - enhanced with direct registration to ensure connection
     const unsubEventCreated = realtimeSync.subscribe('event-created', handleEventCreated);
     const unsubEventUpdated = realtimeSync.subscribe('event-updated', handleEventUpdated);
@@ -257,8 +293,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       unsubEventUpdated();
       unsubUserRegistered();
       unsubUserUnregistered();
+      unsubNotificationReceived();
+      window.removeEventListener('eventvibe-notification-received', handleDomNotificationEvent);
     };
-  }, []);
+  }, [notifications]); // Add notifications as dependency to check for duplicates
   
   // Add a new notification
   const addNotification = (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
@@ -272,8 +310,15 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     setNotifications(prevNotifications => [newNotification, ...prevNotifications].slice(0, 50)); // Limit to 50 notifications
     
     // Play notification sound
-    const audio = new Audio('/sounds/notification.mp3');
-    audio.play().catch(() => {});
+    try {
+      const audio = new Audio('/sounds/notification.mp3');
+      audio.volume = 0.5; // Set volume to 50%
+      audio.play().catch(error => {
+        console.log('[useNotifications] Could not play notification sound:', error);
+      });
+    } catch (error) {
+      console.log('[useNotifications] Error with notification sound:', error);
+    }
   };
   
   // Mark a notification as read

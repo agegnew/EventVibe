@@ -46,6 +46,20 @@ export async function POST(request: NextRequest) {
       try {
         // Try to create the event with the file system
         const newEvent = await serverCreateEvent(eventData, imageBuffer, fileName);
+        
+        // Broadcast event creation to all clients
+        try {
+          // Import the broadcast function
+          const { broadcastEvent } = await import('@/lib/realtime-sync');
+          
+          // Broadcast the new event to all clients
+          broadcastEvent('event-created', newEvent);
+          console.log(`[API] Broadcast event-created for ${newEvent.id}`);
+        } catch (broadcastError) {
+          console.error('[API] Error broadcasting event creation:', broadcastError);
+          // Continue with response even if broadcast fails
+        }
+        
         return NextResponse.json(newEvent);
       } catch (error) {
         console.error('[EventsAPI] Error in serverCreateEvent:', error);
@@ -83,11 +97,38 @@ export async function POST(request: NextRequest) {
           image: mockEvent.image
         });
         
+        // Broadcast event creation to all clients even for mock events
+        try {
+          // Import the broadcast function
+          const { broadcastEvent } = await import('@/lib/realtime-sync');
+          
+          // Broadcast the new event to all clients
+          broadcastEvent('event-created', mockEvent);
+          console.log(`[API] Broadcast event-created for mock event ${mockEvent.id}`);
+        } catch (broadcastError) {
+          console.error('[API] Error broadcasting mock event creation:', broadcastError);
+          // Continue with response even if broadcast fails
+        }
+        
         return NextResponse.json(mockEvent);
       }
     } else {
       // In development - create the event normally
       const newEvent = await serverCreateEvent(eventData, imageBuffer, fileName);
+      
+      // Broadcast event creation to all clients
+      try {
+        // Import the broadcast function
+        const { broadcastEvent } = await import('@/lib/realtime-sync');
+        
+        // Broadcast the new event to all clients
+        broadcastEvent('event-created', newEvent);
+        console.log(`[API] Broadcast event-created for ${newEvent.id}`);
+      } catch (broadcastError) {
+        console.error('[API] Error broadcasting event creation:', broadcastError);
+        // Continue with response even if broadcast fails
+      }
+      
       return NextResponse.json(newEvent);
     }
   } catch (error) {

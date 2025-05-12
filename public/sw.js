@@ -189,11 +189,23 @@ self.addEventListener('message', (event) => {
   
   // Broadcast messages to all clients (for realtime sync)
   if (event.data && event.data.type === 'BROADCAST') {
+    console.log('[ServiceWorker] Broadcasting message to all clients:', event.data.payload);
+    
+    // Add timestamp to help with duplicate detection
+    const messageToSend = event.data.payload ? {
+      ...event.data.payload,
+      _sw_timestamp: Date.now() // Add timestamp to detect duplicates
+    } : event.data;
+    
     self.clients.matchAll().then(clients => {
       clients.forEach(client => {
         // Don't send the message back to the sender
         if (client.id !== event.source.id) {
-          client.postMessage(event.data.payload);
+          try {
+            client.postMessage(messageToSend);
+          } catch (error) {
+            console.error('[ServiceWorker] Error sending message to client:', error);
+          }
         }
       });
     });

@@ -121,6 +121,28 @@ export function NotificationBell() {
     };
   }, [isOpen]);
 
+  // Manually refresh when a notification is received via realtime sync
+  useEffect(() => {
+    // Handle any realtime sync events related to notifications 
+    const handleRealtimeSync = (event: CustomEvent) => {
+      if (event.detail && event.detail.type === 'notification-received') {
+        console.log('[NotificationBell] Detected notification via realtime sync');
+        handleRefresh();
+      }
+    };
+
+    // Listen for the custom realtime-sync event from ServiceWorkerRegister
+    window.addEventListener('realtime-sync', handleRealtimeSync as EventListener);
+    
+    // Also listen for direct notification events
+    window.addEventListener('eventvibe-notification-received', handleRealtimeSync as EventListener);
+    
+    return () => {
+      window.removeEventListener('realtime-sync', handleRealtimeSync as EventListener);
+      window.removeEventListener('eventvibe-notification-received', handleRealtimeSync as EventListener);
+    };
+  }, []);
+
   // Dropdown content
   const renderDropdownContent = () => (
     <div 

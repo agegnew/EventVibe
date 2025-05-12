@@ -249,6 +249,19 @@ export async function PUT(
         registrations: updatedEvent.registrations
       });
       
+      // Manually broadcast event update through data service broadcast for real-time sync
+      try {
+        // Import the broadcast function
+        const { broadcastEvent } = await import('@/lib/realtime-sync');
+        
+        // Broadcast the update to all clients
+        broadcastEvent('event-updated', updatedEvent);
+        console.log(`[API] Broadcast event-updated for ${updatedEvent.id}`);
+      } catch (broadcastError) {
+        console.error('[API] Error broadcasting event update:', broadcastError);
+        // Continue with response even if broadcast fails
+      }
+      
       // Make sure we return the complete event object
       return NextResponse.json(updatedEvent);
     } catch (updateError) {

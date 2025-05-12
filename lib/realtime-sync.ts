@@ -1,5 +1,5 @@
 // Broadcast Channel for real-time sync across tabs
-type EventType = 'event-created' | 'event-updated' | 'event-deleted' | 'event-data-sync' | 'user-updated' | 'user-registered' | 'user-unregistered' | 'ping';
+type EventType = 'event-created' | 'event-updated' | 'event-deleted' | 'event-data-sync' | 'user-updated' | 'user-registered' | 'user-unregistered' | 'notification-received' | 'ping';
 
 interface SyncMessage {
   type: EventType;
@@ -16,7 +16,7 @@ class RealtimeSync {
   private instanceId: string = Math.random().toString(36).substring(2, 9);
   private debug: boolean = true; // Enable debug logging for troubleshooting
   private localStorageKey = 'eventvibe-sync';
-  private syncMethod: 'broadcastchannel' | 'localstorage' | 'none' = 'none';
+  private syncMethod: 'broadcastchannel' | 'localstorage' | 'serviceworker' | 'none' = 'none';
 
   private constructor() {
     if (typeof window === 'undefined') {
@@ -40,6 +40,28 @@ class RealtimeSync {
         return;
       } catch (error) {
         this.logDebug('BroadcastChannel setup failed:', error);
+      }
+    }
+    
+    // Try Service Worker messaging
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      try {
+        this.logDebug('Setting up Service Worker messaging');
+        // This will be initialized when SW is ready via the broadcastToOtherClients method
+        this.isSupported = true;
+        this.syncMethod = 'serviceworker';
+        this.logDebug('Service Worker messaging setup successful');
+        
+        // Listen for messages from the service worker
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data && event.data.type) {
+            this.processMessage(event.data);
+          }
+        });
+        
+        return;
+      } catch (error) {
+        this.logDebug('Service Worker messaging setup failed:', error);
       }
     }
     
@@ -89,129 +111,79 @@ class RealtimeSync {
       }
     }
   }
-  
-  private processMessage(message: SyncMessage) {
-    const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
-    
-    if (!message || !message.type) {
-      this.logDebug('Received invalid message without type');
-      return;
-    }
-    
-    // Don't process ping messages
-    if (message.type === 'ping') {
-      this.logDebug(`Received ping from ${message.data?.source || 'unknown'}`);
-      return;
-    }
 
+  private processMessage(message: SyncMessage) {
     try {
-      this.logDebug(`Processing message type: ${message.type}`, message);
+      // Validate the message
+      if (!message || !message.type || message.source === this.instanceId) {
+        return;
+      }
       
-      // Find listeners for this event type
-      const listeners = this.eventListeners.get(message.type);
-      if (listeners && listeners.size > 0) {
-        this.logDebug(`Notifying ${listeners.size} listeners for ${message.type}`);
-        // Call each listener with the message data
-        listeners.forEach(callback => {
-          try {
-            callback(message.data);
-          } catch (error) {
-            console.error(`[RealtimeSync] Error in event listener for ${message.type}:`, error);
-            
-            // In production, we need to prevent individual listener errors from breaking sync
-            if (isProduction) {
-              console.log(`[RealtimeSync] Production environment - continuing despite listener error`);
-            }
-          }
+      this.logDebug(`Received message of type ${message.type} from ${message.source}`);
+      
+      // Respond to ping messages for testing
+      if (message.type === 'ping') {
+        this.logDebug(`Received ping from ${message.source}`);
+        this.broadcast('ping', { 
+          response: true, 
+          testId: message.data.testId,
+          received: Date.now() 
         });
-      } else {
-        this.logDebug(`No listeners for ${message.type}`);
+        return;
+      }
+      
+      // For all other messages, notify listeners
+      this.notifyLocalListeners(message.type, message.data);
+      
+      // For debugging - handle ping responses
+      if (message.type === 'ping' && message.data.response) {
+        this.logDebug(`Received ping response: round trip time = ${Date.now() - message.data.testId}ms`);
       }
     } catch (error) {
-      console.error(`[RealtimeSync] Error processing message of type ${message.type}:`, error);
-      
-      // In production, we need to ensure the application doesn't break due to sync errors
-      if (isProduction) {
-        console.log('[RealtimeSync] Production environment - suppressing sync error');
-      }
+      // Log error but prevent it from breaking the app
+      console.error('[RealtimeSync] Error processing message:', error, message);
     }
   }
 
   public broadcast(type: EventType, data: any): void {
-    if (typeof window === 'undefined') {
-      this.logDebug('Cannot broadcast - not in browser environment');
-      return;
-    }
-
-    // In production environment, try to be as resilient as possible
-    const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
-    
-    this.logDebug(`Broadcasting message type: ${type}`, data);
-    
-    const message: SyncMessage = {
-      type,
-      data,
-      timestamp: Date.now(),
-      source: this.instanceId
-    };
-    
-    // IMPORTANT: Always process locally first to ensure the current tab always gets updated
-    this.notifyLocalListeners(type, data);
-    
     try {
-      // Then try multiple strategies to broadcast to other tabs/windows
+      // Don't broadcast if not supported
+      if (!this.isSupported) {
+        this.logDebug(`Broadcast skipped (not supported): ${type}`);
+        
+        // Even if broadcast isn't supported, notify local listeners
+        this.notifyLocalListeners(type, data);
+        return;
+      }
+      
+      // Prepare the message
+      const message: SyncMessage = {
+        type,
+        data,
+        timestamp: Date.now(),
+        source: this.instanceId
+      };
+      
+      // Notify local listeners
+      this.notifyLocalListeners(type, data);
+      
+      // Broadcast to other clients
       this.broadcastToOtherClients(message);
       
-      // Use localStorage as a guaranteed method for older browsers
-      try {
-        // Only if localStorage is available
-        if (typeof localStorage !== 'undefined') {
-          const storageKey = 'eventvibe-sync-' + Date.now();
-          localStorage.setItem(storageKey, JSON.stringify(message));
-          
-          // Need to remove after a short delay
-          setTimeout(() => {
-            try {
-              localStorage.removeItem(storageKey);
-            } catch (removeError) {
-              // Ignore removal errors
-            }
-          }, 500);
-        }
-      } catch (e) {
-        this.logDebug('Failed to use localStorage fallback:', e);
-      }
-      
-      // Use service worker if available (this provides cross-browser communication)
-      if (typeof window !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        try {
-          navigator.serviceWorker.controller.postMessage({
-            type: 'BROADCAST',
-            payload: message
-          });
-          this.logDebug('Broadcast via ServiceWorker');
-        } catch (e) {
-          this.logDebug('Failed to use ServiceWorker for broadcast:', e);
-        }
-      }
+      // For debugging
+      this.logDebug(`Broadcast: ${type}`, data);
     } catch (error) {
       console.error('[RealtimeSync] Error during broadcast:', error);
       
-      // In production, ensure local listeners still get notified even if broadcast fails
-      if (isProduction) {
-        this.logDebug('Production environment - ensuring local listeners are notified despite broadcast error');
-        try {
-          // Create a short timeout to make this async
-          setTimeout(() => {
-            this.notifyLocalListeners(type, data);
-          }, 0);
-        } catch (notifyError) {
-          console.error('[RealtimeSync] Critical error notifying local listeners:', notifyError);
-        }
+      // Even if the broadcast fails, notify local listeners
+      try {
+        this.notifyLocalListeners(type, data);
+      } catch (notifyError) {
+        console.error('[RealtimeSync] Error notifying local listeners:', notifyError);
       }
     }
   }
-  
+
   private notifyLocalListeners(type: EventType, data: any): void {
     const listeners = this.eventListeners.get(type);
     if (listeners && listeners.size > 0) {
@@ -227,115 +199,151 @@ class RealtimeSync {
           }
         });
       }, 0);
+    } else {
+      this.logDebug(`No local listeners for ${type}`);
+    }
+  }
+
+  private broadcastToOtherClients(message: SyncMessage): void {
+    // Inject message to custom events for direct DOM listeners
+    if (typeof window !== 'undefined') {
+      try {
+        // Create a custom event that components can listen for directly
+        const event = new CustomEvent(`eventvibe-${message.type}`, { detail: message.data });
+        window.dispatchEvent(event);
+      } catch (eventError) {
+        console.error('[RealtimeSync] Error dispatching custom event:', eventError);
+      }
+    }
+    
+    // Try all sync methods
+    switch (this.syncMethod) {
+      case 'broadcastchannel':
+        try {
+          if (this.channel) {
+            this.channel.postMessage(message);
+          }
+        } catch (error) {
+          console.error('[RealtimeSync] Error using BroadcastChannel:', error);
+          // Fall back to other methods
+          this.broadcastViaLocalStorage(message);
+          this.broadcastViaServiceWorker(message);
+        }
+        break;
+      
+      case 'serviceworker':
+        this.broadcastViaServiceWorker(message);
+        break;
+      
+      case 'localstorage':
+        this.broadcastViaLocalStorage(message);
+        break;
+      
+      case 'none':
+      default:
+        this.logDebug('No sync method available for broadcasting');
+        break;
     }
   }
   
-  private broadcastToOtherClients(message: SyncMessage): void {
-    const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
-    
+  private broadcastViaLocalStorage(message: SyncMessage): void {
     try {
-      if (this.syncMethod === 'broadcastchannel' && this.channel) {
-        try {
-          this.channel.postMessage(message);
-          this.logDebug('Broadcast via BroadcastChannel');
-          return; // Successfully broadcast via channel
-        } catch (channelError) {
-          this.logDebug('BroadcastChannel error:', channelError);
-          // Fall through to localStorage method
-          if (isProduction) {
-            // In production, switch to localStorage permanently after BroadcastChannel fails
-            this.channel = null;
-            this.syncMethod = 'localstorage';
-          }
-        }
-      }
-      
-      // Either no BroadcastChannel or it failed, try localStorage
-      if (typeof localStorage !== 'undefined') {
-        try {
-          // Clear existing value first
-          localStorage.removeItem(this.localStorageKey);
-          // Set new value to trigger storage event in other tabs
-          localStorage.setItem(this.localStorageKey, JSON.stringify(message));
-          this.logDebug('Broadcast via localStorage');
-          
-          // Need to remove the item after a delay to allow other tabs to read it
-          setTimeout(() => {
-            try {
-              localStorage.removeItem(this.localStorageKey);
-            } catch (removeError) {
-              // Ignore removal errors
-            }
-          }, 500);
-          
-          return; // Successfully broadcast via localStorage
-        } catch (localStorageError) {
-          this.logDebug('localStorage broadcast error:', localStorageError);
-          // Both methods failed
-        }
-      }
-      
-      this.logDebug('No broadcast method available or all methods failed');
+      localStorage.setItem(this.localStorageKey, JSON.stringify(message));
+      // Clear after a short delay to ensure event is triggered
+      setTimeout(() => {
+        localStorage.removeItem(this.localStorageKey);
+      }, 100);
     } catch (error) {
-      console.error('[RealtimeSync] Error broadcasting message:', error);
-      
-      // In production, log error but don't break functionality
-      if (isProduction) {
-        this.logDebug('Production environment - continuing despite broadcast error');
+      console.error('[RealtimeSync] Error broadcasting via localStorage:', error);
+    }
+  }
+  
+  private broadcastViaServiceWorker(message: SyncMessage): void {
+    try {
+      if (typeof window !== 'undefined' && 
+          'serviceWorker' in navigator && 
+          navigator.serviceWorker.controller) {
+        
+        // Use the broadcastViaServiceWorker function if available (set by ServiceWorkerRegister)
+        if (window.broadcastViaServiceWorker) {
+          window.broadcastViaServiceWorker(message);
+        } else {
+          // Direct postMessage if the helper isn't available
+          navigator.serviceWorker.controller.postMessage({
+            type: 'BROADCAST',
+            payload: message
+          });
+        }
       }
+    } catch (error) {
+      console.error('[RealtimeSync] Error broadcasting via Service Worker:', error);
     }
   }
 
   public subscribe(type: EventType, callback: (data: any) => void): () => void {
-    this.logDebug(`Subscribing to ${type}`);
-    
-    if (!this.eventListeners.has(type)) {
-      this.eventListeners.set(type, new Set());
-    }
-    
-    const listeners = this.eventListeners.get(type)!;
-    listeners.add(callback);
-    
-    return () => {
-      this.logDebug(`Unsubscribing from ${type}`);
-      if (this.eventListeners.has(type)) {
-        this.eventListeners.get(type)!.delete(callback);
+    try {
+      // Get or create the listeners set for this event type
+      if (!this.eventListeners.has(type)) {
+        this.eventListeners.set(type, new Set());
       }
-    };
+      
+      const listeners = this.eventListeners.get(type)!;
+      listeners.add(callback);
+      
+      this.logDebug(`Subscribed to ${type}, total listeners: ${listeners.size}`);
+      
+      // Return unsubscribe function
+      return () => {
+        try {
+          const listeners = this.eventListeners.get(type);
+          if (listeners) {
+            listeners.delete(callback);
+            this.logDebug(`Unsubscribed from ${type}, remaining listeners: ${listeners.size}`);
+          }
+        } catch (error) {
+          console.error(`[RealtimeSync] Error unsubscribing from ${type}:`, error);
+        }
+      };
+    } catch (error) {
+      console.error(`[RealtimeSync] Error subscribing to ${type}:`, error);
+      // Return a no-op unsubscribe function
+      return () => {};
+    }
   }
 
   public isSyncSupported(): boolean {
     return this.isSupported;
   }
-  
+
   public getSyncMethod(): string {
     return this.syncMethod;
   }
-  
+
   public reset(): void {
-    this.logDebug('Resetting RealtimeSync');
-    
-    // Clean up existing connections
-    if (this.channel) {
-      try {
+    try {
+      // Reset all listeners
+      this.eventListeners.clear();
+      
+      // Clean up BroadcastChannel
+      if (this.channel) {
         this.channel.close();
-      } catch (e) {
-        // Ignore errors during close
+        this.channel = null;
       }
-      this.channel = null;
+      
+      // Remove localStorage listener
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('storage', this.handleStorageEvent);
+      }
+      
+      // Re-initialize
+      this.setupSync();
+      
+      this.logDebug('RealtimeSync reset complete');
+    } catch (error) {
+      console.error('[RealtimeSync] Error during reset:', error);
     }
-    
-    if (this.syncMethod === 'localstorage' && typeof window !== 'undefined') {
-      window.removeEventListener('storage', this.handleStorageEvent);
-    }
-    
-    this.isSupported = false;
-    this.syncMethod = 'none';
-    
-    // Retry setup
-    this.setupSync();
   }
-  
+
   // Fire an immediate test message
   public testConnection(): void {
     this.logDebug('Testing connection with ping');
@@ -352,12 +360,11 @@ class RealtimeSync {
     if (!RealtimeSync.instance) {
       RealtimeSync.instance = new RealtimeSync();
     }
-    
     return RealtimeSync.instance;
   }
 }
 
-// Export a singleton instance
+// Create and export the singleton instance
 export const realtimeSync = RealtimeSync.getInstance();
 
 // Export a diagnostic function to check if real-time sync is working
