@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
           seats: seatsValidation.value,
           status: statusValidation.value,
           featured: featuredValidation.value,
-          image: record.image || '/images/default-event.png'
+          image: record.image && record.image.trim() !== '' ? record.image : '/images/default-event.png'
         }
       } as ValidationSuccess;
     });
@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
         const mockCreatedEvents = eventsToCreate.map(eventData => ({
           ...eventData,
           id: uuidv4(),
-          image: eventData.image || '/images/default-event.png',
+          image: eventData.image && eventData.image.trim() !== '' ? eventData.image : '/images/default-event.png',
           registrations: 0,
           revenue: 0,
           createdAt: now,
